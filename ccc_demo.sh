@@ -14,7 +14,9 @@ function demoRun() {
     eval "$@ --print | jq ." 
     echo
     read -n 1 -s -p "Press any key to continue..." key
-    eval "$@ --wait" 
+    echo
+    eval "$@ --wait"
+    echo
 }
 
 function demoCmd() {
@@ -23,6 +25,7 @@ function demoCmd() {
     eval "$@"
     echo 
     read -n 1 -s -p "Press any key to continue..." key
+    echo
 }
 
 
@@ -59,6 +62,38 @@ demoCmd "ccc_client dts get $TEST_OUTFILE | jq ."
 
 echo -e "${GREEN}
 ##-----------------------------------------##
+## FETCH FILE TEST
+##-----------------------------------------##
+${NC}"
+TEST_FILE=${DEMO_DIR}/fetch_file/test_remote_input
+TEST_OUTFILE=${DEMO_DIR}/fetch_file/test_local_output
+
+# Stage run
+touch $TEST_FILE
+echo 'REMOTE FILE' > $TEST_FILE
+scp $TEST_FILE central-gateway:$TEST_FILE
+CCCID=$(ccc_client dts post -f $TEST_FILE -s ohsu -u strucka | cut -f 2)
+rm $TEST_FILE
+
+demoRun funnel run "'md5sum \$INFILE > \$OUTFILE'" \
+--server http://application-0-1:18000 \
+--container ubuntu \
+--in INFILE=ccc://$CCCID \
+--out OUTFILE=ccc://$TEST_OUTFILE \
+--tag strategy=fetch_file
+
+# Input should have 2 locations now
+demoCmd ccc_client dts get $(cat $TEST_FILE_CCCID)
+
+# Check output
+echo -e "${NC}Task Working Directory:${NC}"
+demoCmd ls -lah $DEMO_DIR/fetch_file
+echo -e "${NC}Output DTS Recod:${NC}"
+demoCmd "ccc_client dts get $TEST_OUTFILE | jq ."
+
+
+echo -e "${GREEN}
+##-----------------------------------------##
 ## PUSH FILE TEST
 ##-----------------------------------------##
 ${NC}"
@@ -83,34 +118,3 @@ demoCmd ls -lah $DEMO_DIR/push_file
 echo -e "${NC}Output DTS Recod:${NC}"
 demoCmd "ccc_client dts get $TEST_OUTFILE | jq ."
 
-
-echo -e "${GREEN}
-##-----------------------------------------##
-## FETCH FILE TEST
-##-----------------------------------------##
-${NC}"
-TEST_FILE=${DEMO_DIR}/fetch_file/test_remote_input
-TEST_OUTFILE=${DEMO_DIR}/fetch_file/test_local_output
-
-# Stage run
-touch $TEST_FILE
-echo 'REMOTE FILE' > $TEST_FILE
-scp $TEST_FILE central-gateway:$DEMO_DIR/$TEST_FILE
-CCCID=$(ccc_client dts post -f $TEST_FILE -s ohsu -u strucka | cut -f 2)
-rm $TEST_FILE
-
-demoRun funnel run "'md5sum \$INFILE > \$OUTFILE'" \
---server http://application-0-1:18000 \
---container ubuntu \
---in INFILE=ccc://$CCCID \
---out OUTFILE=ccc://$TEST_OUTFILE \
---tag strategy=fetch_file
-
-# Input should have 2 locations now
-demoCmd ccc_client dts get $(cat $TEST_FILE_CCCID)
-
-# Check output
-echo -e "${NC}Task Working Directory:${NC}"
-demoCmd ls -lah $DEMO_DIR/fetch_file
-echo -e "${NCOutput DTS Recod:${NC}"
-demoCmd "ccc_client dts get $TEST_OUTFILE | jq ."
