@@ -72,8 +72,10 @@ func (ccc *CCCBackend) Get(ctx context.Context, url string, hostPath string, cla
 	if record.HasSiteLocation(ccc.conf.Sites.Local) {
 		path := record.SitePath(ccc.conf.Sites.Local)
 		err = ccc.local.Get(ctx, path, hostPath, class)
-	}
-	if err != nil {
+		if err != nil {
+			return fmt.Errorf("Failed to download %s: %v", url, err)
+		}
+	} else {
 		return fmt.Errorf("Failed to download %s: %v", url, err)
 	}
 

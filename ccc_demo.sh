@@ -72,7 +72,7 @@ TEST_OUTFILE=${DEMO_DIR}/fetch_file/test_local_output
 touch $TEST_FILE
 echo 'REMOTE FILE' > $TEST_FILE
 scp $TEST_FILE central-gateway:$TEST_FILE
-CCCID=$(ccc_client dts post -f $TEST_FILE -s ohsu -u strucka | cut -f 2)
+CCCID=$(ccc_client dts post -f $TEST_FILE -s central -u strucka | cut -f 2)
 rm $TEST_FILE
 
 demoRun funnel run "'md5sum \$INFILE > \$OUTFILE'" \
@@ -83,7 +83,7 @@ demoRun funnel run "'md5sum \$INFILE > \$OUTFILE'" \
 --tag strategy=fetch_file
 
 # Input should have 2 locations now
-demoCmd ccc_client dts get $(cat $TEST_FILE_CCCID)
+demoCmd ccc_client dts get $CCCID
 
 # Check output
 echo -e "${NC}Task Working Directory:${NC}"

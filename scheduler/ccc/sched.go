@@ -34,7 +34,7 @@ func NewBackend(conf config.Config) (scheduler.Backend, error) {
 	return scheduler.Backend(&Backend{conf}), nil
 }
 
-// Backend represents the HTCondor backend.
+// Backend represents the CCC backend.
 type Backend struct {
 	conf config.Config
 }
@@ -65,13 +65,13 @@ func (s *Backend) Schedule(t *tes.Task) *scheduler.Offer {
 	if val, ok := t.Tags["strategy"]; ok {
 		metadata["strategy"] = val
 	}
-	for _, store := range s.conf.Worker.Storage {
-		if store.CCC.Valid() {
-			if store.CCC.Strategy != "" {
-				metadata["strategy"] = store.CCC.Strategy
-			}
-		}
-	}
+	// for _, store := range s.conf.Worker.Storage {
+	// 	if store.CCC.Valid() {
+	// 		if store.CCC.Strategy != "" {
+	// 			metadata["strategy"] = store.CCC.Strategy
+	// 		}
+	// 	}
+	// }
 
 	// TODO could we call condor_submit --dry-run to test if a task would succeed?
 	w := &pbf.Worker{
@@ -95,7 +95,7 @@ func (s *Backend) ShouldStartWorker(w *pbf.Worker) bool {
 
 // StartWorker submits a task via "condor_submit" to start a new worker.
 func (s *Backend) StartWorker(w *pbf.Worker) error {
-	log.Debug("Starting condor worker")
+	log.Debug("Starting ccc worker", "worker", w)
 	var err error
 
 	// TODO document that these working dirs need manual cleanup
@@ -113,7 +113,7 @@ func (s *Backend) StartWorker(w *pbf.Worker) error {
 	wc.Worker.Resources.RamGb = w.Resources.RamGb
 	wc.Worker.Resources.DiskGb = w.Resources.DiskGb
 
-	storage := setupCCCStorage(w.Metadata["strategy"], s.conf.Storage)
+	storage := setupCCCStorage(w.Metadata["strategy"], wc.Storage)
 	wc.Worker.Storage = storage
 
 	confPath := path.Join(workdir, "worker.conf.yml")
