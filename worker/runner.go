@@ -76,7 +76,7 @@ func (r *DefaultRunner) Run(pctx context.Context) {
 		switch {
 		case run.taskCanceled:
 			// The task was canceled.
-			r.Log.Info("Canceled")
+			r.Log.Info("Runner canceled")
 			r.Svc.SetState(tes.State_CANCELED)
 		case run.execerr != nil:
 			// One of the executors failed
@@ -88,6 +88,7 @@ func (r *DefaultRunner) Run(pctx context.Context) {
 			r.Log.Error("System error", run.syserr)
 			r.Svc.SetState(tes.State_SYSTEM_ERROR)
 		default:
+			r.Log.Info("Runner complete")
 			r.Svc.SetState(tes.State_COMPLETE)
 		}
 	}()
