@@ -1,13 +1,8 @@
 package aws
 
-import (
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-)
-
 // Config represents configuration of the AWS proxy, including
 // the compute environment, job queue, and base job definition.
 type Config struct {
-	Region          string
 	Container       string
 	DefaultTaskName string
 	ComputeEnv      ComputeEnvConfig
@@ -47,8 +42,7 @@ type JobDefConfig struct {
 // DefaultConfig returns default configuration of AWS.
 func DefaultConfig() Config {
 	return Config{
-		Region:    endpoints.UsWest2RegionID,
-		Container: "docker.io/ohsucompbio/funnel",
+		Container:       "docker.io/ohsucompbio/funnel",
 		DefaultTaskName: "funnel task",
 		ComputeEnv: ComputeEnvConfig{
 			Name:         "funnel-compute-environment",
@@ -61,7 +55,7 @@ func DefaultConfig() Config {
 			Tags: map[string]string{
 				"Name": "Funnel",
 			},
-			ServiceRole: "arn:aws:iam::937285387385:role/service-role/AWSBatchServiceRole",
+			ServiceRole: "AWSBatchServiceRole",
 		},
 		JobQueue: JobQueueConfig{
 			Name: "funnel-job-queue",

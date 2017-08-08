@@ -34,7 +34,7 @@ func authorize(ctx context.Context, password string) error {
 	if md, ok := metadata.FromContext(ctx); ok {
 		if len(md["authorization"]) > 0 {
 			raw := md["authorization"][0]
-			_, reqpass, ok := parseBasicAuth(raw)
+			_, reqpass, ok := ParseBasicAuth(raw)
 			if ok {
 				if reqpass == password {
 					return nil
@@ -47,11 +47,11 @@ func authorize(ctx context.Context, password string) error {
 	return grpc.Errorf(codes.Unauthenticated, "")
 }
 
-// parseBasicAuth parses an HTTP Basic Authentication string.
+// ParseBasicAuth parses an HTTP Basic Authentication string.
 // "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==" returns ("Aladdin", "open sesame", true).
 //
 // Taken from Go core: https://golang.org/src/net/http/request.go?s=27379:27445#L828
-func parseBasicAuth(auth string) (username, password string, ok bool) {
+func ParseBasicAuth(auth string) (username, password string, ok bool) {
 	const prefix = "Basic "
 
 	if !strings.HasPrefix(auth, prefix) {

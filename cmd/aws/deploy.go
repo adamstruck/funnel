@@ -4,16 +4,16 @@ import (
 	"fmt"
 )
 
-func deploy(conf Config) error {
-	cli := newBatchClient(conf)
+func deploy(conf Config, region string) error {
+	cli := newBatchSvc(conf)
 
-	a, aerr := cli.CreateComputeEnvironment()
+	a, aerr := cli.CreateComputeEnvironment(region)
 	fmt.Println(a, aerr)
 
-	b, berr := cli.CreateJobQueue()
+	b, berr := cli.CreateJobQueue(region)
 	fmt.Println(b, berr)
 
-	c, cerr := cli.CreateJobDef()
+	c, cerr := cli.CreateJobDef(region)
 	fmt.Println(c, cerr)
 
 	return nil

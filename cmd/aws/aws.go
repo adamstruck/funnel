@@ -13,6 +13,7 @@ var log = logger.New("aws cmd")
 
 // Capture AWS Batch config (compute env, job queue, etc.)
 var flagConf = DefaultConfig()
+var region  = "us-west-2"
 
 // Funnel's AWS Batch proxy passes the task message to this
 // command as a JSON string via a CLI flag.
@@ -24,7 +25,6 @@ func init() {
 	f.StringVar(&rawTask, "task", "", "Task JSON")
 	f.StringVar(&rawTaskFile, "task-file", "", "Task JSON file path")
 
-	Cmd.AddCommand(deployCmd)
 	d := deployCmd.Flags()
 	// Capture AWS Batch config (compute env, job queue, etc.)
 	d.StringSliceVar(
@@ -41,7 +41,10 @@ func init() {
 
 	d.StringVar(&flagConf.Container, "container", flagConf.Container,
 		"Funnel worker Docker container to run.")
+	
+	d.StringVar(&region, "region", region, "AWS region")
 
+	Cmd.AddCommand(deployCmd)
 	Cmd.AddCommand(runTaskCmd)
 	Cmd.AddCommand(proxyCmd)
 }
@@ -54,7 +57,7 @@ var Cmd = &cobra.Command{
 var deployCmd = &cobra.Command{
 	Use: "deploy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return deploy(flagConf)
+		return deploy(flagConf, region)
 	},
 }
 

@@ -2,27 +2,61 @@ package aws
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/batch"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/ohsu-comp-bio/funnel/config"
 	"github.com/ohsu-comp-bio/funnel/proto/tes"
 	"github.com/ohsu-comp-bio/funnel/server"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"regexp"
 	"strings"
 )
 
 const cancelReason = "tes_canceled"
 
+func awsAuthInterceptor() grpc.UnaryServerInterceptor {
+	// Return a function that is the interceptor.
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (interface{}, error) {
+
+			if md, ok := metadata.FromContext(ctx); ok {
+				if len(md["authorization"]) > 0 {
+					raw := md["authorization"][0]
+					key, secret, ok := server.ParseBasicAuth(raw)
+					if ok {
+						ctxv := context.WithValue(ctx, "auth", &credentials.Value{
+							AccessKeyID: key,
+							SecretAccessKey: secret,
+						})
+						return handler(ctxv, req)
+					}
+				}
+			}
+			return nil, grpc.Errorf(codes.Unauthenticated, "")
+	}
+}
+
+func batchServer(conf config.Config) *server.Server {
+	srv := server.DefaultServer(conf)
+	srv.DisableHTTPCache = true
+	srv.ServerOptions = []grpc.ServerOption{
+		grpc.UnaryInterceptor(awsAuthInterceptor()),
+	}
+	return srv
+}
+
 func runProxy(conf config.Config) error {
 	p := proxy{
-		client: newBatchClient(DefaultConfig()),
+		client: newBatchSvc(DefaultConfig()),
 	}
 
-	srv := server.DefaultServer(conf)
+	srv := batchServer(conf)
 	srv.TaskServiceServer = &p
-	srv.DisableHTTPCache = true
-
 	return srv.Serve(context.Background())
 }
 
@@ -31,16 +65,29 @@ type proxy struct {
 }
 
 func (p *proxy) CreateTask(ctx context.Context, task *tes.Task) (*tes.CreateTaskResponse, error) {
-	result, err := p.client.CreateJob(task)
+	log.Debug("CreateTask called", "task", task)
+
+	if err := tes.Validate(task); err != nil {
+		log.Error("Invalid task message", "error", err)
+		return nil, grpc.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	if len(task.Resources.Zones) == 0 {
+		err := errors.New("Task.Resources.Zones cannot be empty")
+		log.Error("Invalid task message", "error", err)
+		return nil, grpc.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	taskId, err := p.client.CreateJob(ctx, task)
 	if err != nil {
 		return nil, err
 	}
-	return &tes.CreateTaskResponse{Id: *result.JobId}, nil
+	return &tes.CreateTaskResponse{Id: taskId}, nil
 }
 
 func (p *proxy) GetTask(ctx context.Context, req *tes.GetTaskRequest) (*tes.Task, error) {
 	// Get the AWS Batch job description.
-	result, err := p.client.DescribeJob(req.Id)
+	result, err := p.client.DescribeJob(ctx, req.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +102,7 @@ func (p *proxy) GetTask(ctx context.Context, req *tes.GetTaskRequest) (*tes.Task
 
 	// Rebuild the task logs.
 	for _, attempt := range j.Attempts {
-		l := p.buildTaskLog(j, attempt)
+		l := p.buildTaskLog(ctx, req.Id, j, attempt)
 		task.Logs = append(task.Logs, l)
 	}
 
@@ -84,7 +131,7 @@ func (p *proxy) ListTasks(ctx context.Context, req *tes.ListTasksRequest) (*tes.
 		page := ""
 		// Loop over ListJobs pages.
 		for {
-			result, err := p.client.ListJobs(status, page, 100)
+			result, err := p.client.ListJobs(ctx, status, page, 100)
 			if err != nil {
 				return nil, err
 			}
@@ -112,7 +159,7 @@ func (p *proxy) ListTasks(ctx context.Context, req *tes.ListTasksRequest) (*tes.
 }
 
 func (p *proxy) CancelTask(ctx context.Context, req *tes.CancelTaskRequest) (*tes.CancelTaskResponse, error) {
-	_, err := p.client.TerminateJob(req.Id)
+	_, err := p.client.TerminateJob(ctx, req.Id)
 	return &tes.CancelTaskResponse{}, err
 }
 
@@ -122,11 +169,11 @@ func (p *proxy) GetServiceInfo(ctx context.Context, info *tes.ServiceInfoRequest
 
 // Task/Executor logs are written to CloudWatchLogs as a sequence of events.
 // This processes those events and rebuilds them into a TES TaskLog.
-func (p *proxy) buildTaskLog(j *batch.JobDetail, a *batch.AttemptDetail) *tes.TaskLog {
+func (p *proxy) buildTaskLog(ctx context.Context, id string, j *batch.JobDetail, a *batch.AttemptDetail) *tes.TaskLog {
 	t := &tes.TaskLog{}
 	arn := *a.Container.TaskArn
 	attemptID := strings.Split(arn, "/")[1]
-	logs, _ := p.client.GetTaskLogs(*j.JobName, *j.JobId, attemptID)
+	logs, _ := p.client.GetTaskLogs(ctx, id, *j.JobName, *j.JobId, attemptID)
 
 	for _, l := range logs.Events {
 		m := logmsg{}

@@ -15,6 +15,7 @@ type Batch interface {
 	CreateComputeEnvironment(*batch.CreateComputeEnvironmentInput) (*batch.CreateComputeEnvironmentOutput, error)
 	CreateJobQueue(*batch.CreateJobQueueInput) (*batch.CreateJobQueueOutput, error)
 	RegisterJobDefinition(*batch.RegisterJobDefinitionInput) (*batch.RegisterJobDefinitionOutput, error)
+	DescribeJobDefinitions(input *batch.DescribeJobDefinitionsInput) (*batch.DescribeJobDefinitionsOutput, error)
 }
 
 // CloudWatchLogs provides a simple interface to the AWS APIs used by Funnel.

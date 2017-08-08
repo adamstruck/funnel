@@ -22,7 +22,9 @@ var log = logger.New("tes http client")
 // of the TES server.
 func NewClient(address string) *Client {
 
-	password := os.Getenv("FUNNEL_SERVER_PASSWORD")
+	key := os.Getenv("FUNNEL_KEY")
+	secret := os.Getenv("FUNNEL_SECRET")
+
 	// Strip trailing slash. A quick and dirty fix.
 	address = strings.TrimSuffix(address, "/")
 	return &Client{
@@ -35,7 +37,8 @@ func NewClient(address string) *Client {
 			EmitDefaults: false,
 			Indent:       "\t",
 		},
-		Password: password,
+		key: key,
+		secret: secret,
 	}
 }
 
@@ -44,7 +47,8 @@ type Client struct {
 	address   string
 	client    *http.Client
 	Marshaler *jsonpb.Marshaler
-	Password  string
+	key        string
+	secret    string
 }
 
 // GetTask returns the raw bytes from GET /v1/tasks/{id}
@@ -55,7 +59,7 @@ func (c *Client) GetTask(id string, view string) (*tes.Task, error) {
 	// Send request
 	u := c.address + "/v1/tasks/" + id + "?view=" + view
 	req, _ := http.NewRequest("GET", u, nil)
-	req.SetBasicAuth("funnel", c.Password)
+	req.SetBasicAuth(c.key, c.secret)
 	body, err := util.CheckHTTPResponse(c.client.Do(req))
 	if err != nil {
 		return nil, err
@@ -82,7 +86,7 @@ func (c *Client) ListTasks(req *tes.ListTasksRequest) (*tes.ListTasksResponse, e
 	// Send request
 	u := c.address + "/v1/tasks?" + v.Encode()
 	hreq, _ := http.NewRequest("GET", u, nil)
-	hreq.SetBasicAuth("funnel", c.Password)
+	hreq.SetBasicAuth(c.key, c.secret)
 	body, err := util.CheckHTTPResponse(c.client.Do(hreq))
 	if err != nil {
 		return nil, err
@@ -109,7 +113,7 @@ func (c *Client) CreateTask(msg []byte) (*tes.CreateTaskResponse, error) {
 	u := c.address + "/v1/tasks"
 	req, _ := http.NewRequest("POST", u, r)
 	req.Header.Add("Content-Type", "application/json")
-	req.SetBasicAuth("funnel", c.Password)
+	req.SetBasicAuth(c.key, c.secret)
 	body, err := util.CheckHTTPResponse(c.client.Do(req))
 	if err != nil {
 		return nil, err
@@ -129,7 +133,7 @@ func (c *Client) CancelTask(id string) (*tes.CancelTaskResponse, error) {
 	u := c.address + "/v1/tasks/" + id + ":cancel"
 	req, _ := http.NewRequest("POST", u, nil)
 	req.Header.Add("Content-Type", "application/json")
-	req.SetBasicAuth("funnel", c.Password)
+	req.SetBasicAuth(c.key, c.secret)
 	body, err := util.CheckHTTPResponse(c.client.Do(req))
 	if err != nil {
 		return nil, err

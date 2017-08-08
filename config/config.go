@@ -176,8 +176,8 @@ func WorkerInheritConfigVals(c Config) Worker {
 // StorageConfig describes configuration for all storage types
 type StorageConfig struct {
 	Local LocalStorage
-	S3    []S3Storage
-	GS    []GSStorage
+	S3    S3Storage
+	GS    GSStorage
 }
 
 // LocalStorage describes the directories Funnel can read from and write to
@@ -203,14 +203,12 @@ func (g GSStorage) Valid() bool {
 
 // S3Storage describes the directories Funnel can read from and write to
 type S3Storage struct {
-	Endpoint string
-	Key      string
-	Secret   string
+	FromEnv bool
 }
 
-// Valid validates the LocalStorage configuration
+// Valid validates the S3Storage configuration
 func (l S3Storage) Valid() bool {
-	return l.Endpoint != "" && l.Key != "" && l.Secret != ""
+	return l.FromEnv
 }
 
 // ToYaml formats the configuration into YAML and returns the bytes.

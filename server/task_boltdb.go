@@ -11,8 +11,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
-	"strings"
 	"time"
 )
 
@@ -21,10 +19,6 @@ import (
 // TaskBucket defines the name of a bucket which maps
 // task ID -> tes.Task struct
 var TaskBucket = []byte("tasks")
-
-// TaskAuthBucket defines the name of a bucket which maps
-// task ID -> JWT token string
-var TaskAuthBucket = []byte("tasks-auth")
 
 // TasksQueued defines the name of a bucket which maps
 // task ID -> nil
@@ -75,9 +69,6 @@ func NewTaskBolt(conf config.Config) (*TaskBolt, error) {
 		if tx.Bucket(TaskBucket) == nil {
 			tx.CreateBucket(TaskBucket)
 		}
-		if tx.Bucket(TaskAuthBucket) == nil {
-			tx.CreateBucket(TaskAuthBucket)
-		}
 		if tx.Bucket(TasksQueued) == nil {
 			tx.CreateBucket(TasksQueued)
 		}
@@ -121,23 +112,6 @@ func (taskBolt *TaskBolt) ReadQueue(n int) []*tes.Task {
 	return tasks
 }
 
-// getJWT
-// This function extracts the JWT token from the rpc header and returns the string
-func getJWT(ctx context.Context) string {
-	jwt := ""
-	v, _ := metadata.FromContext(ctx)
-	auth, ok := v["authorization"]
-	if !ok {
-		return jwt
-	}
-	for _, i := range auth {
-		if strings.HasPrefix(i, "JWT ") {
-			jwt = strings.TrimPrefix(i, "JWT ")
-		}
-	}
-	return jwt
-}
-
 // CreateTask provides an HTTP/gRPC endpoint for creating a task.
 // This is part of the TES implementation.
 func (taskBolt *TaskBolt) CreateTask(ctx context.Context, task *tes.Task) (*tes.CreateTaskResponse, error) {
@@ -150,9 +124,6 @@ func (taskBolt *TaskBolt) CreateTask(ctx context.Context, task *tes.Task) (*tes.
 
 	taskID := util.GenTaskID()
 	log := log.WithFields("taskID", taskID)
-
-	jwt := getJWT(ctx)
-	log.Debug("JWT", "token", jwt)
 
 	ch := make(chan *tes.CreateTaskResponse, 1)
 	err := taskBolt.db.Update(func(tx *bolt.Tx) error {
@@ -167,9 +138,6 @@ func (taskBolt *TaskBolt) CreateTask(ctx context.Context, task *tes.Task) (*tes.
 		taskopB.Put(idBytes, v)
 
 		tx.Bucket(TaskState).Put(idBytes, []byte(tes.State_QUEUED.String()))
-
-		taskopA := tx.Bucket(TaskAuthBucket)
-		taskopA.Put(idBytes, []byte(jwt))
 
 		queueB := tx.Bucket(TasksQueued)
 		queueB.Put(idBytes, []byte{})
@@ -364,15 +332,6 @@ func (taskBolt *TaskBolt) GetServiceInfo(ctx context.Context, info *tes.ServiceI
 	// BUG: this isn't the best translation, probably lossy.
 	//     Maybe ServiceInfo data structure schema needs to be refactored
 	//     For example, you can't have multiple S3 endpoints
-	var out []string
-	if taskBolt.conf.Storage.Local.Valid() {
-		out = append(out, taskBolt.conf.Storage.Local.AllowedDirs...)
-	}
-
-	for _, i := range taskBolt.conf.Storage.S3 {
-		if i.Valid() {
-			out = append(out, i.Endpoint)
-		}
-	}
+	out := []string{"file://", "gs://", "s3://"}
 	return &tes.ServiceInfo{Name: taskBolt.conf.ServiceName, Storage: out}, nil
 }

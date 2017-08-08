@@ -1,42 +1,87 @@
 package aws
 
 import (
+	"context"
+	"encoding/base64"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/batch"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/ohsu-comp-bio/funnel/proto/tes"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"strings"
 )
 
-func newBatchClient(conf Config) *batchsvc {
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(conf.Region),
-	}))
+type awsTaskId struct {
+	Id  string
+	Region string
+}
 
+func (ati *awsTaskId) encode() string {
+	s := fmt.Sprintf("%s:%s", ati.Region, ati.Id)
+	return base64.StdEncoding.EncodeToString([]byte(s))
+}
+
+func decodeAwsTaskId(id string) *awsTaskId {
+	data, _ := base64.StdEncoding.DecodeString(id)
+	parts := strings.Split(string(data), ":")
+	return &awsTaskId{parts[0], parts[1]}
+}
+
+func newBatchSvc(conf Config) *batchsvc {
 	return &batchsvc{
-		conf:           conf,
-		batch:          batch.New(sess),
-		cloudwatchlogs: cloudwatchlogs.New(sess),
+		conf: conf,
 	}
+}
+
+func newSession(ctx context.Context) *session.Session {
+	auth := ctx.Value("auth")
+	config := aws.NewConfig()
+	config.WithCredentials(credentials.NewStaticCredentialsFromCreds(auth.(credentials.Value)))
+	return session.Must(session.NewSession(config))
 }
 
 type batchsvc struct {
-	conf           Config
-	batch          Batch
-	cloudwatchlogs CloudWatchLogs
+	conf Config
 }
 
-func (b *batchsvc) CreateJob(task *tes.Task) (*batch.SubmitJobOutput, error) {
-
+func (b *batchsvc) CreateJob(ctx context.Context, task *tes.Task) (string, error) {
+	
 	marshaler := jsonpb.Marshaler{}
 	taskJSON, err := marshaler.MarshalToString(task)
 	if err != nil {
-		return nil, err
+		return "", err
+	}
+	
+	sess := newSession(ctx)
+	var foundJobDef bool
+	var batchCli Batch
+
+	for _, r := range task.Resources.Zones {
+		sess.Config.Region = aws.String(r)
+		batchCli = batch.New(sess)
+		resp, err := batchCli.DescribeJobDefinitions(&batch.DescribeJobDefinitionsInput{Status: aws.String("ACTIVE")})
+		if err != nil {
+			return "", err
+		}
+		if len(resp.JobDefinitions) > 0 {
+			foundJobDef = true
+			break
+		}
 	}
 
-	return b.batch.SubmitJob(&batch.SubmitJobInput{
+	if foundJobDef {
+		err := fmt.Errorf("No JobDefinitions found in %s", task.Resources.Zones)
+		log.Error("CreateTask failed", "error", err)
+		return "", grpc.Errorf(codes.NotFound, err.Error())
+	}
+	
+	result, err := batchCli.SubmitJob(&batch.SubmitJobInput{
 		JobDefinition: aws.String(b.conf.JobDef.Name),
 		JobName:       aws.String(safeJobName(task.Name)),
 		JobQueue:      aws.String(b.conf.JobQueue.Name),
@@ -47,25 +92,46 @@ func (b *batchsvc) CreateJob(task *tes.Task) (*batch.SubmitJobOutput, error) {
 			"task": aws.String(taskJSON),
 		},
 	})
+	if err != nil {
+		return "", err
+	}
+
+	taskId := &awsTaskId{region, *result.JobId}
+	return taskId.encode(), nil
 }
 
-func (b *batchsvc) DescribeJob(id string) (*batch.DescribeJobsOutput, error) {
-	return b.batch.DescribeJobs(&batch.DescribeJobsInput{
+func (b *batchsvc) DescribeJob(ctx context.Context, id string) (*batch.DescribeJobsOutput, error) {
+	did := decodeAwsTaskId(id)
+	sess := newSession(ctx)
+	sess.Config.Region = aws.String(did.Region)
+	batchCli := batch.New(sess)
+
+	return batchCli.DescribeJobs(&batch.DescribeJobsInput{
 		Jobs: []*string{
-			aws.String(id),
+			aws.String(did.Id),
 		},
 	})
 }
 
-func (b *batchsvc) TerminateJob(id string) (*batch.TerminateJobOutput, error) {
-	return b.batch.TerminateJob(&batch.TerminateJobInput{
-		JobId:  aws.String(id),
+func (b *batchsvc) TerminateJob(ctx context.Context, id string) (*batch.TerminateJobOutput, error) {
+	did := decodeAwsTaskId(id)
+	sess := newSession(ctx)
+	sess.Config.Region = aws.String(did.Region)
+	batchCli := batch.New(sess)
+
+	return batchCli.TerminateJob(&batch.TerminateJobInput{
+		JobId:  aws.String(did.Id),
 		Reason: aws.String(cancelReason),
 	})
 }
 
-func (b *batchsvc) ListJobs(status, token string, size int64) (*batch.ListJobsOutput, error) {
-	return b.batch.ListJobs(&batch.ListJobsInput{
+func (b *batchsvc) ListJobs(ctx context.Context, status, token string, size int64) (*batch.ListJobsOutput, error) {
+	sess := newSession(ctx)
+	// TODO remove hard-coded value
+	sess.Config.Region = aws.String("us-west-2")
+	batchCli := batch.New(sess)
+
+	return batchCli.ListJobs(&batch.ListJobsInput{
 		JobQueue:   aws.String(b.conf.JobQueue.Name),
 		JobStatus:  aws.String(status),
 		MaxResults: aws.Int64(size),
@@ -73,10 +139,13 @@ func (b *batchsvc) ListJobs(status, token string, size int64) (*batch.ListJobsOu
 	})
 }
 
-func (b *batchsvc) CreateComputeEnvironment() (*batch.CreateComputeEnvironmentOutput, error) {
+func (b *batchsvc) CreateComputeEnvironment(region string) (*batch.CreateComputeEnvironmentOutput, error) {
+	sess := session.Must(session.NewSession())
+	sess.Config.Region = aws.String(region)
+	batchCli := batch.New(sess)
 
 	conf := b.conf.ComputeEnv
-	return b.batch.CreateComputeEnvironment(&batch.CreateComputeEnvironmentInput{
+	return batchCli.CreateComputeEnvironment(&batch.CreateComputeEnvironmentInput{
 		ComputeEnvironmentName: aws.String(conf.Name),
 		ComputeResources: &batch.ComputeResource{
 			InstanceRole:     aws.String(conf.InstanceRole),
@@ -94,7 +163,11 @@ func (b *batchsvc) CreateComputeEnvironment() (*batch.CreateComputeEnvironmentOu
 	})
 }
 
-func (b *batchsvc) CreateJobQueue() (*batch.CreateJobQueueOutput, error) {
+func (b *batchsvc) CreateJobQueue(region string) (*batch.CreateJobQueueOutput, error) {
+	sess := session.Must(session.NewSession())
+	sess.Config.Region = aws.String(region)
+	batchCli := batch.New(sess)
+
 	conf := b.conf.JobQueue
 
 	var envs []*batch.ComputeEnvironmentOrder
@@ -105,7 +178,7 @@ func (b *batchsvc) CreateJobQueue() (*batch.CreateJobQueueOutput, error) {
 		})
 	}
 
-	return b.batch.CreateJobQueue(&batch.CreateJobQueueInput{
+	return batchCli.CreateJobQueue(&batch.CreateJobQueueInput{
 		ComputeEnvironmentOrder: envs,
 		JobQueueName:            aws.String(conf.Name),
 		Priority:                aws.Int64(1),
@@ -113,10 +186,14 @@ func (b *batchsvc) CreateJobQueue() (*batch.CreateJobQueueOutput, error) {
 	})
 }
 
-func (b *batchsvc) CreateJobDef() (*batch.RegisterJobDefinitionOutput, error) {
+func (b *batchsvc) CreateJobDef(region string) (*batch.RegisterJobDefinitionOutput, error) {
+	sess := session.Must(session.NewSession())
+	sess.Config.Region = aws.String(region)
+	batchCli := batch.New(sess)
+
 	conf := b.conf.JobDef
 
-	return b.batch.RegisterJobDefinition(&batch.RegisterJobDefinitionInput{
+	return batchCli.RegisterJobDefinition(&batch.RegisterJobDefinitionInput{
 		ContainerProperties: &batch.ContainerProperties{
 			Image:      aws.String(b.conf.Container),
 			Memory:     aws.Int64(conf.Memory),
@@ -150,8 +227,13 @@ func (b *batchsvc) CreateJobDef() (*batch.RegisterJobDefinitionOutput, error) {
 	})
 }
 
-func (b *batchsvc) GetTaskLogs(name, jobID, attemptID string) (*cloudwatchlogs.GetLogEventsOutput, error) {
-	return b.cloudwatchlogs.GetLogEvents(&cloudwatchlogs.GetLogEventsInput{
+func (b *batchsvc) GetTaskLogs(ctx context.Context, taskID string, name string, jobID string, attemptID string) (*cloudwatchlogs.GetLogEventsOutput, error) {
+	did := decodeAwsTaskId(taskID)
+	sess := newSession(ctx)
+	sess.Config.Region = aws.String(did.Region)
+	cloudwatchCli := cloudwatchlogs.New(sess)
+
+	return cloudwatchCli.GetLogEvents(&cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String("/aws/batch/job"),
 		LogStreamName: aws.String(name + "/" + jobID + "/" + attemptID),
 		StartFromHead: aws.Bool(true),

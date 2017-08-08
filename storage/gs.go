@@ -75,16 +75,15 @@ func (gs *GSBackend) Get(ctx context.Context, rawurl string, hostPath string, cl
 		return perr
 	}
 
-	if class == tes.FileType_FILE {
+	switch class {
+	case File:
 		call := gs.svc.Objects.Get(url.bucket, url.path)
 		err := download(call, hostPath)
 		if err != nil {
 			return err
 		}
-		log.Info("Finished file download", "url", rawurl, "hostPath", hostPath)
-		return nil
 
-	} else if class == tes.FileType_DIRECTORY {
+	case Directory:
 		// TODO not handling pagination
 		objects, _ := gs.svc.Objects.List(url.bucket).Prefix(url.path).Do()
 		for _, obj := range objects.Items {
@@ -94,10 +93,13 @@ func (gs *GSBackend) Get(ctx context.Context, rawurl string, hostPath string, cl
 				return err
 			}
 		}
-		log.Info("Finished directory download", "url", rawurl, "hostPath", hostPath)
-		return nil
+
+	default:
+		return fmt.Errorf("Unknown file class: %s", class)
 	}
-	return fmt.Errorf("Unknown file class: %s", class)
+
+	log.Info("Finished download", "url", rawurl, "hostPath", hostPath)
+	return nil
 }
 
 func download(call *storage.ObjectsGetCall, hostPath string) error {
@@ -139,22 +141,21 @@ func (gs *GSBackend) Put(ctx context.Context, rawurl string, hostPath string, cl
 
 	case Directory:
 		files, err := walkFiles(hostPath)
+		if err != nil {
+			return nil, err
+		}
 
 		for _, f := range files {
 			u := rawurl + "/" + f.rel
+			err := gs.put(ctx, u, f.abs)
+			if err != nil {
+				return nil, err
+			}
 			out = append(out, &tes.OutputFileLog{
 				Url:       u,
 				Path:      f.abs,
 				SizeBytes: f.size,
 			})
-			err := gs.put(ctx, u, f.abs)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if err != nil {
-			return nil, err
 		}
 
 	default:

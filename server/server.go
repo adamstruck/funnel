@@ -28,6 +28,7 @@ type Server struct {
 	Handler                http.Handler
 	DisableHTTPCache       bool
 	DialOptions            []grpc.DialOption
+	ServerOptions          []grpc.ServerOption
 }
 
 // DefaultServer returns a new server instance.
@@ -46,6 +47,10 @@ func DefaultServer(conf config.Config) *Server {
 		DialOptions: []grpc.DialOption{
 			grpc.WithInsecure(),
 		},
+		ServerOptions: []grpc.ServerOption{
+			// API auth check.
+			grpc.UnaryInterceptor(newAuthInterceptor(conf.Server.Password)),
+		},
 	}
 }
 
@@ -61,10 +66,7 @@ func (s *Server) Serve(pctx context.Context) error {
 		return err
 	}
 
-	grpcServer := grpc.NewServer(
-		// API auth check.
-		grpc.UnaryInterceptor(newAuthInterceptor(s.Password)),
-	)
+	grpcServer := grpc.NewServer(s.ServerOptions...)
 
 	// Set up HTTP proxy of gRPC API
 	mux := http.NewServeMux()

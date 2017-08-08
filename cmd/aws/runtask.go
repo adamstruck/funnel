@@ -48,11 +48,7 @@ func runTask(task *tes.Task, conf config.Config) error {
 		},
 	})
 
-	conf.Worker.Storage.S3 = append(conf.Worker.Storage.S3, config.S3Storage{
-		Endpoint: "s3.amazonaws.com",
-		Key:      os.Getenv("AWS_ACCESS_KEY_ID"),
-		Secret:   os.Getenv("AWS_SECRET_ACCESS_KEY"),
-	})
+	conf.Worker.Storage.S3 = config.S3Storage{FromEnv: true}
 
 	runner := worker.DefaultRunner{
 		Conf:   conf.Worker,

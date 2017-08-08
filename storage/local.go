@@ -46,9 +46,12 @@ func (local *LocalBackend) Get(ctx context.Context, url string, hostPath string,
 	}
 
 	var err error
-	if class == File {
+
+	switch class {
+	case File:
 		err = linkFile(path, hostPath)
-	} else if class == Directory {
+
+	case Directory:
 		err = filepath.Walk(path, func(p string, f os.FileInfo, err error) error {
 			if !f.IsDir() {
 				rel, err := filepath.Rel(path, p)
@@ -59,7 +62,8 @@ func (local *LocalBackend) Get(ctx context.Context, url string, hostPath string,
 			}
 			return nil
 		})
-	} else {
+
+	default:
 		err = fmt.Errorf("Unknown file class: %s", class)
 	}
 

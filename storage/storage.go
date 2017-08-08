@@ -99,26 +99,22 @@ func (storage Storage) WithConfig(conf config.StorageConfig) (Storage, error) {
 		storage = storage.WithBackend(local)
 	}
 
-	for _, c := range conf.S3 {
-		if c.Valid() {
-			s3, err := NewS3Backend(c)
-			if err != nil {
-				log.Error("S3 storage backend", err)
-				return storage, err
-			}
-			storage = storage.WithBackend(s3)
+	if conf.S3.Valid() {
+		s3, err := NewS3Backend(conf.S3)
+		if err != nil {
+			log.Error("S3 storage backend", err)
+			return storage, err
 		}
+		storage = storage.WithBackend(s3)
 	}
 
-	for _, c := range conf.GS {
-		if c.Valid() {
-			gs, nerr := NewGSBackend(c)
-			if nerr != nil {
-				log.Error("Google Storage backend", nerr)
-				return storage, nerr
-			}
-			storage = storage.WithBackend(gs)
+	if conf.GS.Valid() {
+		gs, nerr := NewGSBackend(conf.GS)
+		if nerr != nil {
+			log.Error("Google Storage backend", nerr)
+			return storage, nerr
 		}
+		storage = storage.WithBackend(gs)
 	}
 
 	return storage, nil

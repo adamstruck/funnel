@@ -256,17 +256,6 @@ func (taskBolt *TaskBolt) ListWorkers(ctx context.Context, req *pbf.ListWorkersR
 	return resp, nil
 }
 
-// Look for an auth token related to the given task ID.
-func getTaskAuth(tx *bolt.Tx, taskID string) string {
-	idBytes := []byte(taskID)
-	var auth string
-	data := tx.Bucket(TaskAuthBucket).Get(idBytes)
-	if data != nil {
-		auth = string(data)
-	}
-	return auth
-}
-
 func transitionTaskState(tx *bolt.Tx, id string, target tes.State) error {
 	idBytes := []byte(id)
 	current := getTaskState(tx, id)
