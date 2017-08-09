@@ -26,22 +26,8 @@ func init() {
 	f.StringVar(&rawTaskFile, "task-file", "", "Task JSON file path")
 
 	d := deployCmd.Flags()
-	// Capture AWS Batch config (compute env, job queue, etc.)
-	d.StringSliceVar(
-		&flagConf.ComputeEnv.Subnets,
-		"subnet",
-		flagConf.ComputeEnv.Subnets,
-		"AWS Batch compute environment subnet ID")
-
-	d.StringSliceVar(
-		&flagConf.ComputeEnv.SecurityGroupIds,
-		"security-group",
-		flagConf.ComputeEnv.SecurityGroupIds,
-		"AWS Batch compute environment security group ID")
-
 	d.StringVar(&flagConf.Container, "container", flagConf.Container,
 		"Funnel worker Docker container to run.")
-	
 	d.StringVar(&region, "region", region, "AWS region")
 
 	Cmd.AddCommand(deployCmd)

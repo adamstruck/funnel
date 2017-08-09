@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/batch"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/ohsu-comp-bio/funnel/proto/tes"
 	"google.golang.org/grpc"
@@ -143,8 +144,28 @@ func (b *batchsvc) CreateComputeEnvironment(region string) (*batch.CreateCompute
 	sess := session.Must(session.NewSession())
 	sess.Config.Region = aws.String(region)
 	batchCli := batch.New(sess)
+	ec2Cli := ec2.New(sess)
 
 	conf := b.conf.ComputeEnv
+	
+	sgres, sgerr := ec2Cli.DescribeSecurityGroups(nil)
+	if sgerr != nil {
+		return nil, sgerr
+	}
+	securityGroupIds := []string{}
+	for _, s := range sgres.SecurityGroups {
+		securityGroupIds = append(securityGroupIds, *s.GroupId)
+	}
+
+	snres, snerr := ec2Cli.DescribeSubnets(nil)
+	if snerr != nil {
+		return nil, snerr
+	}
+	subnets := []string{}
+	for _, s := range snres.Subnets {
+		subnets = append(subnets, *s.SubnetId)
+	}
+
 	return batchCli.CreateComputeEnvironment(&batch.CreateComputeEnvironmentInput{
 		ComputeEnvironmentName: aws.String(conf.Name),
 		ComputeResources: &batch.ComputeResource{
@@ -152,8 +173,8 @@ func (b *batchsvc) CreateComputeEnvironment(region string) (*batch.CreateCompute
 			InstanceTypes:    convertStringSlice(conf.InstanceTypes),
 			MaxvCpus:         aws.Int64(conf.MaxVCPUs),
 			MinvCpus:         aws.Int64(conf.MinVCPUs),
-			SecurityGroupIds: convertStringSlice(conf.SecurityGroupIds),
-			Subnets:          convertStringSlice(conf.Subnets),
+			SecurityGroupIds: convertStringSlice(securityGroupIds),
+			Subnets:          convertStringSlice(subnets),
 			Tags:             convertStringMap(conf.Tags),
 			Type:             aws.String("EC2"),
 		},
