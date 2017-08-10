@@ -100,7 +100,7 @@ func (b *batchsvc) CreateJob(ctx context.Context, task *tes.Task) (string, error
 		},
 	}
 
-	// convert GB to MiB
+	// convert ram from GB to MiB
 	ram := int64(task.Resources.RamGb * 953.674)
 	vcpus := int64(task.Resources.CpuCores)
 	if ram > b.conf.JobDef.Memory {
@@ -115,7 +115,9 @@ func (b *batchsvc) CreateJob(ctx context.Context, task *tes.Task) (string, error
 		return "", err
 	}
 
-	taskId := &awsTaskId{*result.JobId, region}
+	taskId := &awsTaskId{*result.JobId, *sess.Config.Region}
+	// taskId := &awsTaskId{"1c73954d-47e4-47e2-b7aa-383234cca0e5", *sess.Config.Region}
+	log.Debug("Created Task", "Id", taskId.encode(), "decoded", decodeAwsTaskId(taskId.encode()))
 	return taskId.encode(), nil
 }
 

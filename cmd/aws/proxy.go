@@ -29,6 +29,9 @@ func awsAuthInterceptor() grpc.UnaryServerInterceptor {
 				raw := md["authorization"][0]
 				key, secret, ok := server.ParseBasicAuth(raw)
 				if ok {
+					if key == "" || secret == "" {
+						return nil, grpc.Errorf(codes.Unauthenticated, "Unauthenticated")
+					}
 					ctxv := context.WithValue(ctx, "auth", credentials.Value{
 						AccessKeyID:     key,
 						SecretAccessKey: secret,
@@ -37,7 +40,7 @@ func awsAuthInterceptor() grpc.UnaryServerInterceptor {
 				}
 			}
 		}
-		return nil, grpc.Errorf(codes.Unauthenticated, "")
+		return nil, grpc.Errorf(codes.Unauthenticated, "Unauthenticated")
 	}
 }
 
@@ -86,10 +89,14 @@ func (p *proxy) CreateTask(ctx context.Context, task *tes.Task) (*tes.CreateTask
 }
 
 func (p *proxy) GetTask(ctx context.Context, req *tes.GetTaskRequest) (*tes.Task, error) {
+	log.Debug("GetTask called", "id", req.Id, "decoded", decodeAwsTaskId(req.Id))
 	// Get the AWS Batch job description.
 	result, err := p.client.DescribeJob(ctx, req.Id)
 	if err != nil {
 		return nil, err
+	}
+	if len(result.Jobs) == 0 {
+		return nil, grpc.Errorf(codes.NotFound, "task not found")
 	}
 	j := result.Jobs[0]
 
@@ -159,6 +166,7 @@ func (p *proxy) ListTasks(ctx context.Context, req *tes.ListTasksRequest) (*tes.
 }
 
 func (p *proxy) CancelTask(ctx context.Context, req *tes.CancelTaskRequest) (*tes.CancelTaskResponse, error) {
+	log.Debug("CancelTask called", "id", req.Id, "decoded", decodeAwsTaskId(req.Id))
 	_, err := p.client.TerminateJob(ctx, req.Id)
 	return &tes.CancelTaskResponse{}, err
 }

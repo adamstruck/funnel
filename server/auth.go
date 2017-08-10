@@ -51,7 +51,7 @@ func authorize(ctx context.Context, password string) error {
 // "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==" returns ("Aladdin", "open sesame", true).
 //
 // Taken from Go core: https://golang.org/src/net/http/request.go?s=27379:27445#L828
-func ParseBasicAuth(auth string) (username, password string, ok bool) {
+func ParseBasicAuth(auth string) (username string, password string, ok bool) {
 	const prefix = "Basic "
 
 	if !strings.HasPrefix(auth, prefix) {
