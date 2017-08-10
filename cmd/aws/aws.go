@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/ohsu-comp-bio/funnel/config"
@@ -8,6 +9,7 @@ import (
 	"github.com/ohsu-comp-bio/funnel/proto/tes"
 	"github.com/spf13/cobra"
 	"io/ioutil"
+	"strings"
 )
 
 var log = logger.New("aws cmd")
@@ -55,12 +57,32 @@ var runTaskCmd = &cobra.Command{
 	Use: "runtask",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
+		if rawTask != "" {
+			rawTask = strings.Join(append([]string{rawTask}, args...), " ")
+
+			var anything interface{}
+			err := json.Unmarshal([]byte(rawTask), &anything)
+			if err != nil {
+				return fmt.Errorf("Error parsing Task JSON: %v", err)
+			}
+			if t, ok := anything.(string); ok {
+				rawTask = t
+			} else {
+				b, err := json.Marshal(&anything)
+				if err != nil {
+					return fmt.Errorf("Error cleaning Task JSON: %v", err)
+				}
+				rawTask = string(b)
+			}
+		}
+
 		if rawTaskFile != "" {
 			b, err := ioutil.ReadFile(rawTaskFile)
 			if err != nil {
 				return err
 			}
 			rawTask = string(b)
+			fmt.Println("3: ", rawTask)
 		}
 
 		// Load tes.Task from raw string (comes from CLI flag).
@@ -68,6 +90,10 @@ var runTaskCmd = &cobra.Command{
 		err := jsonpb.UnmarshalString(rawTask, &task)
 		if err != nil {
 			return err
+		}
+
+		if err := tes.Validate(&task); err != nil {
+			return fmt.Errorf("Invalid task message: %v", err)
 		}
 
 		conf := config.DefaultConfig()
