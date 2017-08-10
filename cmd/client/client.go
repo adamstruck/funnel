@@ -37,7 +37,7 @@ func NewClient(address string) *Client {
 			EmitDefaults: false,
 			Indent:       "\t",
 		},
-		key: key,
+		key:    key,
 		secret: secret,
 	}
 }
@@ -47,7 +47,7 @@ type Client struct {
 	address   string
 	client    *http.Client
 	Marshaler *jsonpb.Marshaler
-	key        string
+	key       string
 	secret    string
 }
 

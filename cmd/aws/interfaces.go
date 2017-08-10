@@ -13,7 +13,9 @@ type Batch interface {
 	TerminateJob(*batch.TerminateJobInput) (*batch.TerminateJobOutput, error)
 	ListJobs(*batch.ListJobsInput) (*batch.ListJobsOutput, error)
 	CreateComputeEnvironment(*batch.CreateComputeEnvironmentInput) (*batch.CreateComputeEnvironmentOutput, error)
+	DescribeComputeEnvironments(input *batch.DescribeComputeEnvironmentsInput) (*batch.DescribeComputeEnvironmentsOutput, error)
 	CreateJobQueue(*batch.CreateJobQueueInput) (*batch.CreateJobQueueOutput, error)
+	DescribeJobQueues(input *batch.DescribeJobQueuesInput) (*batch.DescribeJobQueuesOutput, error)
 	RegisterJobDefinition(*batch.RegisterJobDefinitionInput) (*batch.RegisterJobDefinitionOutput, error)
 	DescribeJobDefinitions(input *batch.DescribeJobDefinitionsInput) (*batch.DescribeJobDefinitionsOutput, error)
 }

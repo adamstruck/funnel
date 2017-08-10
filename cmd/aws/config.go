@@ -42,20 +42,19 @@ type JobDefConfig struct {
 // DefaultConfig returns default configuration of AWS.
 func DefaultConfig() Config {
 	return Config{
-		Container:       "docker.io/ohsucompbio/funnel",
+		Container:       "docker.io/adamstruck/funnel:aws-auth",
 		DefaultTaskName: "funnel task",
 		ComputeEnv: ComputeEnvConfig{
 			Name:         "funnel-compute-environment",
 			InstanceRole: "ecsInstanceRole",
 			InstanceTypes: []string{
-				"m4", "c4", "r4", "x1",
+				"optimal",
 			},
 			MinVCPUs: 0,
-			MaxVCPUs: 128,
+			MaxVCPUs: 256,
 			Tags: map[string]string{
 				"Name": "Funnel",
 			},
-			ServiceRole: "AWSBatchServiceRole",
 		},
 		JobQueue: JobQueueConfig{
 			Name: "funnel-job-queue",

@@ -24,20 +24,20 @@ func awsAuthInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler) (interface{}, error) {
 
-			if md, ok := metadata.FromContext(ctx); ok {
-				if len(md["authorization"]) > 0 {
-					raw := md["authorization"][0]
-					key, secret, ok := server.ParseBasicAuth(raw)
-					if ok {
-						ctxv := context.WithValue(ctx, "auth", &credentials.Value{
-							AccessKeyID: key,
-							SecretAccessKey: secret,
-						})
-						return handler(ctxv, req)
-					}
+		if md, ok := metadata.FromContext(ctx); ok {
+			if len(md["authorization"]) > 0 {
+				raw := md["authorization"][0]
+				key, secret, ok := server.ParseBasicAuth(raw)
+				if ok {
+					ctxv := context.WithValue(ctx, "auth", credentials.Value{
+						AccessKeyID:     key,
+						SecretAccessKey: secret,
+					})
+					return handler(ctxv, req)
 				}
 			}
-			return nil, grpc.Errorf(codes.Unauthenticated, "")
+		}
+		return nil, grpc.Errorf(codes.Unauthenticated, "")
 	}
 }
 

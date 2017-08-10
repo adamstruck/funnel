@@ -21,8 +21,8 @@ Make sure to properly protect the configuration file so that it's not readable b
 $ chmod 600 funnel.config.yml
 ```
 
-To use the password, set the `FUNNEL_SERVER_PASSWORD` environment variable:
+To use the password, set the `FUNNEL_SECRET` environment variable:
 ```bash
-$ export FUNNEL_SERVER_PASSWORD=abc123
+$ export FUNNEL_SECRET=abc123
 $ funnel task list
 ```

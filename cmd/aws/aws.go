@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/ohsu-comp-bio/funnel/config"
 	"github.com/ohsu-comp-bio/funnel/logger"
@@ -13,7 +14,7 @@ var log = logger.New("aws cmd")
 
 // Capture AWS Batch config (compute env, job queue, etc.)
 var flagConf = DefaultConfig()
-var region  = "us-west-2"
+var region string
 
 // Funnel's AWS Batch proxy passes the task message to this
 // command as a JSON string via a CLI flag.
@@ -28,7 +29,6 @@ func init() {
 	d := deployCmd.Flags()
 	d.StringVar(&flagConf.Container, "container", flagConf.Container,
 		"Funnel worker Docker container to run.")
-	d.StringVar(&region, "region", region, "AWS region")
 
 	Cmd.AddCommand(deployCmd)
 	Cmd.AddCommand(runTaskCmd)
@@ -41,9 +41,13 @@ var Cmd = &cobra.Command{
 }
 
 var deployCmd = &cobra.Command{
-	Use: "deploy",
+	Use: "deploy REGION",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return deploy(flagConf, region)
+		if len(args) == 0 {
+			fmt.Println("You must provide a region\n")
+			return cmd.Help()
+		}
+		return deploy(flagConf, args[0])
 	},
 }
 
