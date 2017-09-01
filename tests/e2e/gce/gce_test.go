@@ -3,12 +3,12 @@ package gce
 import (
 	"context"
 	"github.com/go-test/deep"
+	"github.com/ohsu-comp-bio/funnel/compute/basic"
+	"github.com/ohsu-comp-bio/funnel/compute/basic/gce"
+	gcemock "github.com/ohsu-comp-bio/funnel/compute/basic/gce/mocks"
 	"github.com/ohsu-comp-bio/funnel/logger"
 	pbs "github.com/ohsu-comp-bio/funnel/proto/scheduler"
 	"github.com/ohsu-comp-bio/funnel/proto/tes"
-	"github.com/ohsu-comp-bio/funnel/scheduler"
-	"github.com/ohsu-comp-bio/funnel/scheduler/gce"
-	gcemock "github.com/ohsu-comp-bio/funnel/scheduler/gce/mocks"
 	"github.com/ohsu-comp-bio/funnel/tests/e2e"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/api/compute/v1"
@@ -26,13 +26,13 @@ type Funnel struct {
 
 func (f *Funnel) AddNode(id string, cpus uint32, ram, disk float64) {
 	conf := f.Conf
-	conf.Scheduler.Node.ID = id
-	conf.Scheduler.Node.Metadata["gce"] = "yes"
-	conf.Scheduler.Node.Resources.Cpus = cpus
-	conf.Scheduler.Node.Resources.RamGb = ram
-	conf.Scheduler.Node.Resources.DiskGb = disk
+	conf.Backends.Basic.Node.ID = id
+	conf.Backends.Basic.Node.Metadata["gce"] = "yes"
+	conf.Backends.Basic.Node.Resources.Cpus = cpus
+	conf.Backends.Basic.Node.Resources.RamGb = ram
+	conf.Backends.Basic.Node.Resources.DiskGb = disk
 
-	n, err := scheduler.NewNode(conf)
+	n, err := basic.NewNode(conf)
 	if err != nil {
 		panic(err)
 	}
@@ -42,10 +42,12 @@ func (f *Funnel) AddNode(id string, cpus uint32, ram, disk float64) {
 
 func NewFunnel() *Funnel {
 	conf := e2e.DefaultConfig()
+	conf.Backend = "funnel-basic-scheduler"
+	conf.Backends.Basic.Backend = "gce"
 
 	// NOTE: matches hard-coded values in mock wrapper
-	conf.Backends.GCE.Project = "test-proj"
-	conf.Backends.GCE.Zone = "test-zone"
+	conf.Backends.Basic.Backends.GCE.Project = "test-proj"
+	conf.Backends.Basic.Backends.GCE.Zone = "test-zone"
 
 	backend, err := gce.NewMockBackend(conf)
 	if err != nil {
@@ -77,15 +79,15 @@ func NewFunnel() *Funnel {
 				}
 			}
 
-			meta.Instance.Zone = conf.Backends.GCE.Zone
-			meta.Project.ProjectID = conf.Backends.GCE.Project
+			meta.Instance.Zone = conf.Backends.Basic.Backends.GCE.Zone
+			meta.Project.ProjectID = conf.Backends.Basic.Backends.GCE.Project
 			c, cerr := gce.WithMetadataConfig(conf, meta)
 
 			if cerr != nil {
 				panic(cerr)
 			}
 
-			n, err := scheduler.NewNode(c)
+			n, err := basic.NewNode(c)
 			if err != nil {
 				panic(err)
 			}
@@ -93,7 +95,7 @@ func NewFunnel() *Funnel {
 		}).
 		Return(nil, nil)
 
-	fun.Scheduler = scheduler.NewScheduler(fun.DB, backend, conf.Scheduler)
+	fun.Scheduler = basic.NewScheduler(fun.DB, backend, conf.Backends.Basic)
 	fun.StartServer()
 
 	return fun

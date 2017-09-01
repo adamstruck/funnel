@@ -11,7 +11,7 @@ import (
 // then doesn't ping in time, and it marked dead
 func TestWorkerDead(t *testing.T) {
 	conf := DefaultConfig()
-	conf.Scheduler.NodePingTimeout = time.Millisecond
+	conf.Backends.Basic.NodePingTimeout = time.Millisecond
 	srv := NewFunnel(conf)
 
 	srv.DB.UpdateNode(context.Background(), &pbs.Node{
@@ -19,7 +19,7 @@ func TestWorkerDead(t *testing.T) {
 		State: pbs.NodeState_ALIVE,
 	})
 
-	time.Sleep(conf.Scheduler.NodePingTimeout * 2)
+	time.Sleep(conf.Backends.Basic.NodePingTimeout * 2)
 	srv.DB.CheckNodes()
 
 	nodes := srv.ListNodes()
@@ -32,7 +32,7 @@ func TestWorkerDead(t *testing.T) {
 // It should be marked as dead.
 func TestNodeInitFail(t *testing.T) {
 	conf := DefaultConfig()
-	conf.Scheduler.NodeInitTimeout = time.Millisecond
+	conf.Backends.Basic.NodeInitTimeout = time.Millisecond
 	srv := NewFunnel(conf)
 
 	srv.DB.UpdateNode(context.Background(), &pbs.Node{
@@ -40,7 +40,7 @@ func TestNodeInitFail(t *testing.T) {
 		State: pbs.NodeState_INITIALIZING,
 	})
 
-	time.Sleep(conf.Scheduler.NodeInitTimeout * 2)
+	time.Sleep(conf.Backends.Basic.NodeInitTimeout * 2)
 	srv.DB.CheckNodes()
 	nodes := srv.ListNodes()
 

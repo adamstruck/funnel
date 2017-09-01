@@ -9,12 +9,14 @@ import (
 	docker "github.com/docker/docker/client"
 	"github.com/ohsu-comp-bio/funnel/cmd/client"
 	runlib "github.com/ohsu-comp-bio/funnel/cmd/run"
+	"github.com/ohsu-comp-bio/funnel/compute"
+	"github.com/ohsu-comp-bio/funnel/compute/basic"
+	"github.com/ohsu-comp-bio/funnel/compute/local"
+	"github.com/ohsu-comp-bio/funnel/compute/noop"
 	"github.com/ohsu-comp-bio/funnel/config"
 	"github.com/ohsu-comp-bio/funnel/logger"
 	pbs "github.com/ohsu-comp-bio/funnel/proto/scheduler"
 	"github.com/ohsu-comp-bio/funnel/proto/tes"
-	"github.com/ohsu-comp-bio/funnel/scheduler"
-	"github.com/ohsu-comp-bio/funnel/scheduler/local"
 	"github.com/ohsu-comp-bio/funnel/server"
 	"github.com/ohsu-comp-bio/funnel/tests/testutils"
 	"github.com/ohsu-comp-bio/funnel/util"
@@ -51,7 +53,7 @@ type Funnel struct {
 	// Components
 	DB        *server.TaskBolt
 	Server    *server.Server
-	Scheduler *scheduler.Scheduler
+	Scheduler *basic.Scheduler
 
 	// Internal
 	startTime string
@@ -65,10 +67,12 @@ func DefaultConfig() config.Config {
 	conf := config.DefaultConfig()
 	conf = testutils.TempDirConfig(conf)
 	conf = testutils.RandomPortConfig(conf)
-	conf = testutils.LoggerDebugConfig(conf)
-	conf.Scheduler.ScheduleRate = time.Millisecond * 700
-	conf.Scheduler.Node.UpdateRate = time.Millisecond * 1300
-	conf.Worker.UpdateRate = time.Millisecond * 1300
+	conf.Server.Logger = logger.DebugConfig()
+	conf.Backends.Basic.Node.Logger = logger.DebugConfig()
+	conf.Worker.Logger = logger.DebugConfig()
+	conf.Backends.Basic.ScheduleRate = time.Millisecond * 700
+	conf.Backends.Basic.Node.UpdateRate = time.Millisecond * 1300
+	conf.Worker.UpdateRate = time.Millisecond * 300
 
 	storageDir, _ := ioutil.TempDir("./test_tmp", "funnel-test-storage-")
 	wd, _ := os.Getwd()
@@ -97,13 +101,23 @@ func DefaultConfig() config.Config {
 func NewFunnel(conf config.Config) *Funnel {
 	conf = config.InheritServerProperties(conf)
 
-	var derr error
 	dcli, derr := util.NewDockerClient()
 	if derr != nil {
 		panic(derr)
 	}
 
-	db, dberr := server.NewTaskBolt(conf)
+	computeLoader := compute.BackendLoader{
+		basic.Name: basic.NewBackend,
+		local.Name: local.NewBackend,
+		noop.Name:  noop.NewBackend,
+	}
+
+	backend, err := computeLoader.Load(conf.Backend, conf)
+	if err != nil {
+		panic(err)
+	}
+
+	db, dberr := server.NewTaskBolt(conf, backend)
 	if dberr != nil {
 		panic(dberr)
 	}
@@ -118,7 +132,7 @@ func NewFunnel(conf config.Config) *Funnel {
 		DB:         db,
 		Server:     srv,
 		startTime:  fmt.Sprintf("%d", time.Now().Unix()),
-		rate:       conf.Scheduler.ScheduleRate,
+		rate:       time.Millisecond * 500,
 	}
 }
 
@@ -153,15 +167,6 @@ func (f *Funnel) Cleanup() {
 	os.RemoveAll(f.StorageDir)
 	os.RemoveAll(f.Conf.Worker.WorkDir)
 	f.conn.Close()
-}
-
-// WithLocalBackend configures the instance to use the local scheduler backend.
-func (f *Funnel) WithLocalBackend() {
-	backend, berr := local.NewBackend(f.Conf)
-	if berr != nil {
-		panic(berr)
-	}
-	f.Scheduler = scheduler.NewScheduler(f.DB, backend, f.Conf.Scheduler)
 }
 
 // StartServer starts the server
@@ -391,7 +396,7 @@ func (f *Funnel) StartServerInDocker(imageName string, backend string, extraArgs
 		"-v", fmt.Sprintf("%s:%s", configPath, configPath),
 	}
 	args = append(args, extraArgs...)
-	args = append(args, imageName, "funnel", "server", "--config",
+	args = append(args, imageName, "funnel", "server", "run", "--config",
 		configPath, "--backend", backend)
 
 	cmd := exec.Command("docker", args...)

@@ -11,18 +11,16 @@ type Worker interface {
 	Run(context.Context)
 }
 
-// TaskService is a type which reads and writes task information
+// TaskReader is a type which reads and writes task information
 // during task execution.
-type TaskService interface {
-	TaskLogger
-
+type TaskReader interface {
 	Task() (*tes.Task, error)
 	State() tes.State
-	SetState(tes.State) error
 }
 
 // TaskLogger provides write access to a task's logs.
 type TaskLogger interface {
+	SetState(tes.State) error
 	StartTime(t time.Time)
 	EndTime(t time.Time)
 	Outputs(o []*tes.OutputFileLog)

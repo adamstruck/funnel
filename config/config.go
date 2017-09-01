@@ -30,23 +30,9 @@ type Config struct {
 		GridEngine struct {
 			Template string
 		}
-		OpenStack struct {
-			KeyPair    string
-			ConfigPath string
-			Server     os_servers.CreateOpts
-		}
-		GCE struct {
-			AccountFile string
-			Project     string
-			Zone        string
-			Weights     struct {
-				PreferQuickStartup float32
-			}
-			CacheTTL time.Duration
-		}
+		Basic Scheduler
 	}
-	Scheduler Scheduler
-	Worker    Worker
+	Worker Worker
 }
 
 // InheritServerProperties sets the ServerAddress and ServerPassword fields
@@ -55,8 +41,8 @@ func InheritServerProperties(c Config) Config {
 	c.Worker.ServerAddress = c.Server.RPCAddress()
 	c.Worker.ServerPassword = c.Server.Password
 
-	c.Scheduler.Node.ServerAddress = c.Server.RPCAddress()
-	c.Scheduler.Node.ServerPassword = c.Server.Password
+	c.Backends.Basic.Node.ServerAddress = c.Server.RPCAddress()
+	c.Backends.Basic.Node.ServerPassword = c.Server.Password
 	return c
 }
 
@@ -77,21 +63,6 @@ func DefaultConfig() Config {
 			Logger:             logger.DefaultConfig(),
 		},
 		Backend: "local",
-		Scheduler: Scheduler{
-			ScheduleRate:    time.Second,
-			ScheduleChunk:   10,
-			NodePingTimeout: time.Minute,
-			NodeInitTimeout: time.Minute * 5,
-			Node: Node{
-				WorkDir:       workDir,
-				Timeout:       -1,
-				UpdateRate:    time.Second * 5,
-				UpdateTimeout: time.Second,
-				Metadata:      map[string]string{},
-				Logger:        logger.DefaultConfig(),
-			},
-			Logger: logger.DefaultConfig(),
-		},
 		Worker: Worker{
 			WorkDir: workDir,
 			Storage: StorageConfig{
@@ -106,9 +77,6 @@ func DefaultConfig() Config {
 		},
 	}
 
-	// set rpc server address and password for worker and node
-	c = InheritServerProperties(c)
-
 	htcondorTemplate, _ := Asset("config/htcondor-template.txt")
 	slurmTemplate, _ := Asset("config/slurm-template.txt")
 	pbsTemplate, _ := Asset("config/pbs-template.txt")
@@ -119,9 +87,27 @@ func DefaultConfig() Config {
 	c.Backends.PBS.Template = string(pbsTemplate)
 	c.Backends.GridEngine.Template = string(geTemplate)
 
-	c.Backends.GCE.CacheTTL = time.Minute
-	c.Backends.GCE.Weights.PreferQuickStartup = 1.0
+	// basic scheduler defaults
+	c.Backends.Basic = Scheduler{
+		ScheduleRate:    time.Second,
+		ScheduleChunk:   10,
+		Backend:         "manual",
+		NodePingTimeout: time.Minute,
+		NodeInitTimeout: time.Minute * 5,
+		Node: Node{
+			WorkDir:       workDir,
+			Timeout:       -1,
+			UpdateRate:    time.Second * 5,
+			UpdateTimeout: time.Second,
+			Metadata:      map[string]string{},
+			Logger:        logger.DefaultConfig(),
+		},
+	}
+	c.Backends.Basic.Backends.GCE.CacheTTL = time.Minute
+	c.Backends.Basic.Backends.GCE.Weights.PreferQuickStartup = 1.0
 
+	// set rpc server address and password for worker and node
+	c = InheritServerProperties(c)
 	return c
 }
 
@@ -164,10 +150,27 @@ type Scheduler struct {
 	NodePingTimeout time.Duration
 	// How long to wait for node initialization before marking it dead
 	NodeInitTimeout time.Duration
+	Backend         string
+	Backends        struct {
+		Manual    struct{}
+		OpenStack struct {
+			KeyPair    string
+			ConfigPath string
+			Server     os_servers.CreateOpts
+		}
+		// Google Cloud Compute
+		GCE struct {
+			AccountFile string
+			Project     string
+			Zone        string
+			Weights     struct {
+				PreferQuickStartup float32
+			}
+			CacheTTL time.Duration
+		}
+	}
 	// Node configuration
 	Node Node
-	// Logger configuration
-	Logger logger.Config
 }
 
 // Node contains the configuration for a node. Nodes track available resources

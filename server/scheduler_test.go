@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/ohsu-comp-bio/funnel/compute/basic"
 	"github.com/ohsu-comp-bio/funnel/config"
 	pbs "github.com/ohsu-comp-bio/funnel/proto/scheduler"
 	"github.com/ohsu-comp-bio/funnel/proto/tes"
@@ -15,8 +16,13 @@ func TestScheduledTaskRemovedFromQueue(t *testing.T) {
 	conf := config.DefaultConfig()
 	conf = testutils.TempDirConfig(conf)
 
+	backend, err := basic.NewBackend(conf)
+	if err != nil {
+		t.Fatal("Couldn't setup basic scheduler compute backend")
+	}
+
 	// Create database
-	db, dberr := NewTaskBolt(conf)
+	db, dberr := NewTaskBolt(conf, backend)
 	if dberr != nil {
 		t.Fatal("Couldn't open database")
 	}
@@ -31,7 +37,11 @@ func TestScheduledTaskRemovedFromQueue(t *testing.T) {
 			},
 		},
 	}
-	db.CreateTask(ctx, task)
+
+	_, err = db.QueueTask(ctx, task)
+	if err != nil {
+		t.Fatal("QueueTask failed", err)
+	}
 
 	res := db.ReadQueue(10)
 	if len(res) != 1 {

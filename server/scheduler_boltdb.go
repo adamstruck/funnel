@@ -11,6 +11,22 @@ import (
 	"time"
 )
 
+// QueueTask adds a task to the scheduler queue.
+func (taskBolt *TaskBolt) QueueTask(ctx context.Context, task *tes.Task) (*pbs.QueueTaskResponse, error) {
+	taskID := task.Id
+	idBytes := []byte(taskID)
+
+	err := taskBolt.db.Update(func(tx *bolt.Tx) error {
+		tx.Bucket(TasksQueued).Put(idBytes, []byte{})
+		return nil
+	})
+	if err != nil {
+		log.Error("Error queuing task", err)
+		return nil, err
+	}
+	return &pbs.QueueTaskResponse{}, nil
+}
+
 // ReadQueue returns a slice of queued Tasks. Up to "n" tasks are returned.
 func (taskBolt *TaskBolt) ReadQueue(n int) []*tes.Task {
 	tasks := make([]*tes.Task, 0)
@@ -203,11 +219,11 @@ func (taskBolt *TaskBolt) CheckNodes() error {
 				node.State == pbs.NodeState_INITIALIZING {
 
 				// The node is initializing, which has a more liberal timeout.
-				if d > taskBolt.conf.Scheduler.NodeInitTimeout {
+				if d > taskBolt.conf.Backends.Basic.NodeInitTimeout {
 					// Looks like the node failed to initialize. Mark it dead
 					node.State = pbs.NodeState_DEAD
 				}
-			} else if d > taskBolt.conf.Scheduler.NodePingTimeout {
+			} else if d > taskBolt.conf.Backends.Basic.NodePingTimeout {
 				// The node is stale/dead
 				node.State = pbs.NodeState_DEAD
 			} else {

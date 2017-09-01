@@ -37,18 +37,9 @@ func RandomPortConfig(conf config.Config) config.Config {
 func TempDirConfig(conf config.Config) config.Config {
 	os.Mkdir("./test_tmp", os.ModePerm)
 	f, _ := ioutil.TempDir("./test_tmp", "funnel-test-")
-	conf.Scheduler.Node.WorkDir = f
+	conf.Backends.Basic.Node.WorkDir = f
 	conf.Worker.WorkDir = f
 	conf.Server.DBPath = path.Join(f, "funnel.db")
-	return conf
-}
-
-// LoggerDebugConfig returns a modified config all loggers configured with logger.DebugConfig()
-func LoggerDebugConfig(conf config.Config) config.Config {
-	conf.Server.Logger = logger.DebugConfig()
-	conf.Scheduler.Logger = logger.DebugConfig()
-	conf.Scheduler.Node.Logger = logger.DebugConfig()
-	conf.Worker.Logger = logger.DebugConfig()
 	return conf
 }
 
