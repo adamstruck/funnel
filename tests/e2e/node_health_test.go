@@ -9,7 +9,7 @@ import (
 
 // Test the simple case of a node that is alive,
 // then doesn't ping in time, and it marked dead
-func TestWorkerDead(t *testing.T) {
+func TestNodeDead(t *testing.T) {
 	conf := DefaultConfig()
 	conf.Backends.Basic.NodePingTimeout = time.Millisecond
 	srv := NewFunnel(conf)
