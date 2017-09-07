@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/ohsu-comp-bio/funnel/cmd/node"
 	"github.com/ohsu-comp-bio/funnel/cmd/server"
+	"github.com/ohsu-comp-bio/funnel/compute/basic/gce"
 	"github.com/ohsu-comp-bio/funnel/config"
 	"github.com/ohsu-comp-bio/funnel/logger"
-	"github.com/ohsu-comp-bio/funnel/scheduler/gce"
 	"github.com/spf13/cobra"
 )
 
@@ -43,8 +43,8 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
-		if conf.Scheduler.Node.ID != "" {
-			logger.Configure(conf.Scheduler.Node.Logger)
+		if conf.Backends.Basic.Node.ID != "" {
+			logger.Configure(conf.Backends.Basic.Node.Logger)
 			return node.Run(conf)
 		}
 

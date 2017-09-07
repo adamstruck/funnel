@@ -30,7 +30,8 @@ proto:
 	 	tasklogger.proto
 	@cd proto/scheduler && protoc \
 	   $(PROTO_INC) \
-	 	--go_out=plugins=grpc:. \
+	 	-I ../tes \
+	 	--go_out=Mtes.proto=github.com/ohsu-comp-bio/funnel/proto/tes,plugins=grpc:. \
 	 	--grpc-gateway_out=logtostderr=true:. \
 	 	scheduler.proto
 
@@ -150,11 +151,11 @@ gce-installer: cross-compile
 # Generate mocks for testing.
 gen-mocks:
 	@go get github.com/vektra/mockery/...
-	@mockery -dir scheduler/gce -name Client -print > scheduler/gce/mocks/Client_mock.go
-	@mockery -dir scheduler/gce -name Wrapper -print > scheduler/gce/mocks/Wrapper_mock.go
+	@mockery -dir compute/basic -name Database -print > compute/basic/mocks/Database_mock.go
+	@mockery -dir compute/basic -name Client -print > compute/basic/mocks/Client_mock.go
+	@mockery -dir compute/basic/gce -name Client -print > compute/basic/gce/mocks/Client_mock.go
+	@mockery -dir compute/basic/gce -name Wrapper -print > compute/basic/gce/mocks/Wrapper_mock.go
 	@mockery -dir server -name Database -print > server/mocks/Database_mock.go
-	@mockery -dir scheduler -name Database -print > scheduler/mocks/Database_mock.go
-	@mockery -dir scheduler -name Client -print > scheduler/mocks/Client_mock.go
 
 # Bundle example task messages into Go code.
 bundle-examples:

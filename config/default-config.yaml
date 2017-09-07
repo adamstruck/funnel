@@ -95,7 +95,7 @@ Backends:
       universe = vanilla
       getenv = True
       executable = {{.Executable}}
-      arguments = node run --config {{Config}}
+      arguments = worker run --config {{Config}}
       log = {{.WorkDir}}/condor-event-log
       error = {{.WorkDir}}/funnel-stderr
       output = {{.WorkDir}}/funnel-stdout
@@ -116,7 +116,7 @@ Backends:
   PBS:
     Template: |
       #!bin/bash
-      #PBS -N {{.NodeId}}
+      #PBS -N {{.TaskId}}
       #PBS -o {{.WorkDir}}/funnel-stdout
       #PBS -e {{.WorkDir}}/funnel-stderr
       {{if ne .Cpus 0 -}}
@@ -129,12 +129,12 @@ Backends:
       {{printf "#PBS -l file=%.0fgb" .DiskGb}}
       {{- end}}
 
-      {{.Executable}} node run --config {{Config}}
+      {{.Executable}} worker run --config {{Config}}
 
   GridEngine:
     Template: |
       #!bin/bash
-      #$ -N {{.NodeId}}
+      #$ -N {{.TaskId}}
       #$ -o {{.WorkDir}}/funnel-stdout
       #$ -e {{.WorkDir}}/funnel-stderr
       #$ -l nodes=1
@@ -148,12 +148,12 @@ Backends:
       {{printf "#$ -l h_fsize=%.0fG" .DiskGb}}
       {{- end}}
 
-      {{.Executable}} node run --config {{Config}}
+      {{.Executable}} worker run --config {{Config}}
   
   SLURM:
     Template: |
       #!/bin/bash
-      #SBATCH --job-name {{.NodeId}}
+      #SBATCH --job-name {{.TaskId}}
       #SBATCH --ntasks 1
       #SBATCH --error {{.WorkDir}}/funnel-stderr
       #SBATCH --output {{.WorkDir}}/funnel-stdout
@@ -167,7 +167,7 @@ Backends:
       {{printf "#SBATCH --tmp %.0fGB" .DiskGb}}
       {{- end}}
 
-      {{.Executable}} node run --config {{Config}}
+      {{.Executable}} worker run --config {{Config}}
 
   GCE:
     # Path to account credentials file.

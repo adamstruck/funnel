@@ -23,15 +23,17 @@ func NewDefaultWorker(conf config.Worker, taskID string) Worker {
 	util.EnsureDir(baseDir)
 
 	// TODO handle error
-	svc, _ := newRPCTask(conf, taskID)
-	log := logger.Sub("runner", "taskID", taskID)
+	lsvc, _ := NewRPCTaskLogger(conf, taskID)
+	rsvc, _ := NewRPCTaskReader(conf, taskID)
+	log := logger.Sub("worker", "taskID", taskID)
 
 	return &DefaultWorker{
-		Conf:   conf,
-		Mapper: NewFileMapper(baseDir),
-		Store:  storage.Storage{},
-		Svc:    svc,
-		Log:    log,
+		Conf:       conf,
+		Mapper:     NewFileMapper(baseDir),
+		Store:      storage.Storage{},
+		TaskLogger: lsvc,
+		TaskReader: rsvc,
+		Log:        log,
 	}
 }
 
@@ -39,11 +41,12 @@ func NewDefaultWorker(conf config.Worker, taskID string) Worker {
 // sequential process of task initialization, execution, finalization,
 // and logging.
 type DefaultWorker struct {
-	Conf   config.Worker
-	Mapper *FileMapper
-	Store  storage.Storage
-	Svc    TaskService
-	Log    logger.Logger
+	Conf       config.Worker
+	Mapper     *FileMapper
+	Store      storage.Storage
+	TaskLogger TaskLogger
+	TaskReader TaskReader
+	Log        logger.Logger
 }
 
 // Run runs the Worker.
@@ -65,30 +68,34 @@ func (r *DefaultWorker) Run(pctx context.Context) {
 	var run helper
 	var task *tes.Task
 
-	task, run.syserr = r.Svc.Task()
+	run.syserr = r.TaskLogger.SetState(tes.State_INITIALIZING)
 
-	r.Svc.StartTime(time.Now())
+	if run.ok() {
+		task, run.syserr = r.TaskReader.Task()
+	}
+
+	r.TaskLogger.StartTime(time.Now())
 	// Run the final logging/state steps in a deferred function
 	// to ensure they always run, even if there's a missed error.
 	defer func() {
-		r.Svc.EndTime(time.Now())
+		r.TaskLogger.EndTime(time.Now())
 
 		switch {
 		case run.taskCanceled:
 			// The task was canceled.
 			r.Log.Info("Canceled")
-			r.Svc.SetState(tes.State_CANCELED)
+			r.TaskLogger.SetState(tes.State_CANCELED)
 		case run.execerr != nil:
 			// One of the executors failed
 			r.Log.Error("Exec error", run.execerr)
-			r.Svc.SetState(tes.State_ERROR)
+			r.TaskLogger.SetState(tes.State_ERROR)
 		case run.syserr != nil:
 			// Something else failed
 			// TODO should we do something special for run.err == context.Canceled?
 			r.Log.Error("System error", run.syserr)
-			r.Svc.SetState(tes.State_SYSTEM_ERROR)
+			r.TaskLogger.SetState(tes.State_SYSTEM_ERROR)
 		default:
-			r.Svc.SetState(tes.State_COMPLETE)
+			r.TaskLogger.SetState(tes.State_COMPLETE)
 		}
 	}()
 
@@ -144,7 +151,7 @@ func (r *DefaultWorker) Run(pctx context.Context) {
 	}
 
 	if run.ok() {
-		r.Svc.SetState(tes.State_RUNNING)
+		r.TaskLogger.SetState(tes.State_RUNNING)
 	}
 
 	// Run steps
@@ -154,7 +161,7 @@ func (r *DefaultWorker) Run(pctx context.Context) {
 			Conf:       r.Conf,
 			Num:        i,
 			Log:        r.Log.WithFields("step", i),
-			TaskLogger: r.Svc,
+			TaskLogger: r.TaskLogger,
 			IP:         ip,
 			Cmd: &DockerCmd{
 				ImageName:     d.ImageName,
@@ -191,7 +198,7 @@ func (r *DefaultWorker) Run(pctx context.Context) {
 	}
 
 	if run.ok() {
-		r.Svc.Outputs(outputs)
+		r.TaskLogger.Outputs(outputs)
 	}
 }
 
@@ -308,7 +315,7 @@ func (r *DefaultWorker) pollForCancel(ctx context.Context, f func()) context.Con
 			case <-taskctx.Done():
 				return
 			case <-ticker.C:
-				state := r.Svc.State()
+				state := r.TaskReader.State()
 				if tes.TerminalState(state) {
 					cancel()
 					f()

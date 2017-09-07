@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package scheduler;
 
+import "tes.proto";
 import "google/api/annotations.proto";
 
 message Resources {
@@ -48,6 +49,8 @@ message GetNodeRequest {
   string id = 1;
 }
 
+message QueueTaskResponse {}
+
 /**
  * Scheduler Service
  */
@@ -65,4 +68,6 @@ service SchedulerService {
       get: "/v1/nodes/{id}"
     };
   };
+
+  rpc QueueTask(tes.Task) returns (QueueTaskResponse) {};
 }

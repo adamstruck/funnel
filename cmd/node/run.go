@@ -3,9 +3,9 @@ package node
 import (
 	"context"
 	"github.com/imdario/mergo"
+	"github.com/ohsu-comp-bio/funnel/compute/basic"
 	"github.com/ohsu-comp-bio/funnel/config"
 	"github.com/ohsu-comp-bio/funnel/logger"
-	"github.com/ohsu-comp-bio/funnel/scheduler"
 	"github.com/spf13/cobra"
 )
 
@@ -38,24 +38,24 @@ var runCmd = &cobra.Command{
 
 func init() {
 	flags := runCmd.Flags()
-	flags.StringVar(&flagConf.Scheduler.Node.ID, "id", flagConf.Scheduler.Node.ID, "Node ID")
-	flags.StringVar(&flagConf.Scheduler.Node.ServerAddress, "server-address", flagConf.Scheduler.Node.ServerAddress, "Address of scheduler gRPC endpoint")
-	flags.DurationVar(&flagConf.Scheduler.Node.Timeout, "timeout", flagConf.Scheduler.Node.Timeout, "Timeout in seconds")
-	flags.StringVar(&flagConf.Scheduler.Node.WorkDir, "work-dir", flagConf.Scheduler.Node.WorkDir, "Working Directory")
-	flags.StringVar(&flagConf.Scheduler.Node.Logger.Level, "log-level", flagConf.Scheduler.Node.Logger.Level, "Level of logging")
-	flags.StringVar(&flagConf.Scheduler.Node.Logger.OutputFile, "log-path", flagConf.Scheduler.Node.Logger.OutputFile, "File path to write logs to")
+	flags.StringVar(&flagConf.Backends.Basic.Node.ID, "id", flagConf.Backends.Basic.Node.ID, "Node ID")
+	flags.StringVar(&flagConf.Backends.Basic.Node.ServerAddress, "server-address", flagConf.Backends.Basic.Node.ServerAddress, "Address of scheduler gRPC endpoint")
+	flags.DurationVar(&flagConf.Backends.Basic.Node.Timeout, "timeout", flagConf.Backends.Basic.Node.Timeout, "Timeout in seconds")
+	flags.StringVar(&flagConf.Backends.Basic.Node.WorkDir, "work-dir", flagConf.Backends.Basic.Node.WorkDir, "Working Directory")
+	flags.StringVar(&flagConf.Backends.Basic.Node.Logger.Level, "log-level", flagConf.Backends.Basic.Node.Logger.Level, "Level of logging")
+	flags.StringVar(&flagConf.Backends.Basic.Node.Logger.OutputFile, "log-path", flagConf.Backends.Basic.Node.Logger.OutputFile, "File path to write logs to")
 	flags.StringVarP(&configFile, "config", "c", "", "Config File")
 }
 
 // Run runs a node with the given config, blocking until the node exits.
 func Run(conf config.Config) error {
-	logger.Configure(conf.Scheduler.Node.Logger)
+	logger.Configure(conf.Backends.Basic.Node.Logger)
 
-	if conf.Scheduler.Node.ID == "" {
-		conf.Scheduler.Node.ID = scheduler.GenNodeID("manual")
+	if conf.Backends.Basic.Node.ID == "" {
+		conf.Backends.Basic.Node.ID = basic.GenNodeID("manual")
 	}
 
-	n, err := scheduler.NewNode(conf)
+	n, err := basic.NewNode(conf)
 	if err != nil {
 		return err
 	}
