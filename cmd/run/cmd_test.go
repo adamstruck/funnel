@@ -85,7 +85,7 @@ func TestParse(t *testing.T) {
 			Executors: []*tes.Executor{
 				{
 					ImageName: "busybox",
-					Cmd:       []string{"echo", "hello"},
+					Cmd:       []string{"sh", "-c", "echo hello"},
 					Workdir:   "myworkdir",
 					Stdout:    "/opt/funnel/outputs/stdout-0",
 					Stderr:    "/opt/funnel/outputs/stderr-0",
@@ -141,7 +141,7 @@ func TestParse(t *testing.T) {
     --env e2=e2v
     --stdout ./testdata/stdout-first
     -x '--name foo'
-    --cmd 'echo two'
+    --exec 'echo two'
     --stdout ./testdata/stdout-second
     --vol /volone
     --vol /voltwo
@@ -171,11 +171,11 @@ func TestParse(t *testing.T) {
 			Indent:       "\t",
 		}
 		s, _ := m.MarshalToString(expected[0])
-		log.Debug("Expected", s)
+		t.Log("Expected", s)
 		q, _ := m.MarshalToString(result[0])
-		log.Debug("Actual", q)
+		t.Log("Actual", q)
 		for _, d := range diff {
-			log.Debug("Diff", d)
+			t.Log("Diff", d)
 		}
 		t.Fatal("unexpected results")
 	}

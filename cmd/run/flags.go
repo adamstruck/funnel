@@ -26,6 +26,7 @@ type flagVals struct {
 	// Top-level flag values. These are not allowed to be redefined
 	// by scattered tasks or extra args, to avoid complexity in avoiding
 	// circular imports or nested scattering
+	taskFile     string
 	printTask    bool
 	server       string
 	extra        []string
@@ -84,6 +85,10 @@ func newFlags(v *flagVals) *pflag.FlagSet {
 	f.StringSliceVar(&v.scatterFiles, "scatter", v.scatterFiles, "")
 	f.StringSliceVar(&v.sh, "sh", v.sh, "")
 	f.StringSliceVar(&v.exec, "exec", v.exec, "")
+	// hiding flag for prototype feature that allows a user to overwrite sections of
+	// a task json file
+	f.StringVar(&v.taskFile, "task", v.taskFile, "")
+	f.MarkHidden("task")
 
 	// Disable sorting in order to visit flags in primordial order below.
 	// See buildExecs()
@@ -135,11 +140,6 @@ func defaultVals(vals *flagVals) {
 		vals.container = "alpine"
 	}
 
-	// Default name
-	if vals.name == "" {
-		vals.name = "Funnel run: " + vals.execs[0].cmd
-	}
-
 	if vals.server == "" {
 		vals.server = "http://localhost:8000"
 	}
@@ -166,7 +166,7 @@ func parseTopLevelArgs(vals *flagVals, args []string) error {
 	}
 	parseTaskArgs(vals, args)
 
-	if len(vals.execs) == 0 {
+	if len(vals.execs) == 0 && vals.taskFile == "" {
 		return fmt.Errorf("you must specify a command to run")
 	}
 

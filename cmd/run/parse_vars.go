@@ -3,6 +3,8 @@ package run
 import (
 	"errors"
 	"fmt"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/imdario/mergo"
 	"github.com/kballard/go-shellquote"
 	"github.com/ohsu-comp-bio/funnel/proto/tes"
 	"io/ioutil"
@@ -184,6 +186,29 @@ func valsToTask(vals flagVals) (task *tes.Task, err error) {
 		k, v := parseCliVar(raw)
 		task.Tags[k] = v
 	}
+
+	if vals.taskFile != "" {
+		var taskBytes []byte
+		var taskFromFile tes.Task
+
+		taskBytes, err = ioutil.ReadFile(vals.taskFile)
+		if err != nil {
+			return
+		}
+
+		err = jsonpb.UnmarshalString(string(taskBytes), &taskFromFile)
+		if err != nil {
+			return
+		}
+
+		err = mergo.MergeWithOverwrite(&taskFromFile, task)
+		if err != nil {
+			return
+		}
+
+		task = &taskFromFile
+	}
+
 	return
 }
 
