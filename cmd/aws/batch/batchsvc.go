@@ -13,12 +13,6 @@ import (
 	"strings"
 )
 
-type errResourceExists struct{}
-
-func (e errResourceExists) Error() string {
-	return "resource exists"
-}
-
 func newBatchSvc(conf Config) (*batchsvc, error) {
 	sess, err := util.NewAWSSession(conf.AWSConfig)
 	if err != nil {
