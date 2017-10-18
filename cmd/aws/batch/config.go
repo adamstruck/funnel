@@ -83,7 +83,7 @@ func DefaultConfig() Config {
 			},
 		},
 		JobRole: JobRoleConfig{
-			RoleName:           "FunnelEcsTaskRole",
+			RoleName:           "FunnelECSTaskRole",
 			DynamoDBPolicyName: "FunnelDynamoDB",
 			S3PolicyName:       "FunnelS3",
 		},
