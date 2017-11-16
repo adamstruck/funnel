@@ -15,7 +15,7 @@ cache:
     - vendor
 
 git:
-  submodules: true
+  submodules: false
 
 install:
   - make depends
