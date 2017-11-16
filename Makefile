@@ -82,6 +82,13 @@ lint:
 		./...
 	@gometalinter --disable-all --enable=vet --enable=gofmt --enable=misspell --vendor ./cmd/termdash/...
 
+test-travis:
+ifeq ($(BUILD_TYPE), lint)
+	make lint
+else
+	make test-${BUILD_TYPE}
+endif
+
 # Run all tests
 test:
 	@go test $(TESTS)
@@ -89,41 +96,50 @@ test:
 test-verbose:
 	@go test -v $(TESTS)
 
-test-elasticsearch:
+start-elasticsearch:
 	@docker rm -f funnel-es-test  > /dev/null 2>&1 || echo
 	@docker run -d --name funnel-es-test -p 9200:9200 -p 9300:9300 -e "discovery.type=single-node" -e "xpack.security.enabled=false" docker.elastic.co/elasticsearch/elasticsearch:5.6.3 > /dev/null
-	@sleep 30
+
+test-elasticsearch:
 	@go test ./tests/core/ -funnel-config $(CONFIGDIR)/elastic.config.yml
 	@go test ./tests/scheduler/ -funnel-config $(CONFIGDIR)/elastic.config.yml
-	@docker rm -f funnel-es-test  > /dev/null 2>&1 || echo
 
-test-mongodb:
+start-mongodb:
 	@docker rm -f funnel-mongodb-test > /dev/null 2>&1 || echo
 	@docker run -d --name funnel-mongodb-test -p 27000:27017 docker.io/mongo:3.5.13 > /dev/null
-	@sleep 10
+
+test-mongodb:
 	@go test ./tests/core/ -funnel-config $(CONFIGDIR)/mongo.config.yml
 	@go test ./tests/scheduler/ -funnel-config $(CONFIGDIR)/mongo.config.yml	
-	@docker rm -f funnel-mongodb-test  > /dev/null 2>&1 || echo 
 
-test-dynamodb:
+start-dynamodb:
 	@docker rm -f funnel-dynamodb-test > /dev/null 2>&1 || echo
 	@docker run -d --name funnel-dynamodb-test -p 8000:8000 docker.io/dwmkerr/dynamodb:38 > /dev/null
-	@sleep 10
-	@go test ./tests/core/ -funnel-config $(CONFIGDIR)/dynamo.config.yml
-	@docker rm -f funnel-dynamodb-test  > /dev/null 2>&1 || echo 
 
-test-kafka:
+test-dynamodb:
+	@go test ./tests/core/ -funnel-config $(CONFIGDIR)/dynamo.config.yml
+
+start-kafka:
 	@docker rm -f funnel-kafka > /dev/null 2>&1 || echo
 	@docker run -d --name funnel-kafka -p 2181:2181 -p 9092:9092 --env ADVERTISED_HOST="localhost" --env ADVERTISED_PORT=9092 spotify/kafka
-	@sleep 10
-	@go test ./tests/kafka/
-	@docker rm -f funnel-kafka > /dev/null 2>&1 || echo
 
-# Run backend tests
-test-backends:
-	@go test -timeout 120s ./tests/slurm -funnel-config $(CONFIGDIR)/slurm.config.yml
-	@go test -timeout 120s ./tests/gridengine -funnel-config $(CONFIGDIR)/gridengine.config.yml
+test-kafka:
+	@go test ./tests/kafka/
+
+test-htcondor:
+	@docker pull ohsucompbio/htcondor
 	@go test -timeout 120s ./tests/htcondor -funnel-config $(CONFIGDIR)/htcondor.config.yml
+
+test-slurm:
+	@docker pull ohsucompbio/slurm
+	@go test -timeout 120s ./tests/slurm -funnel-config $(CONFIGDIR)/slurm.config.yml
+
+test-gridengine:
+	@docker pull ohsucompbio/gridengine
+	@go test -timeout 120s ./tests/gridengine -funnel-config $(CONFIGDIR)/gridengine.config.yml
+
+test-pbs-torque:
+	@docker pull ohsucompbio/pbs-torque
 	@go test -timeout 120s ./tests/pbs -funnel-config $(CONFIGDIR)/pbs.config.yml
 
 # Run s3 tests
@@ -132,8 +148,7 @@ test-s3:
 
 # Tests meant to run in an OpenStack environment
 test-swift:
-	# @go test ./tests/storage -funnel-config $(CONFIGDIR)/swift.config.yml
-	@go test ./tests/storage -funnel-config ${FUNNEL_OPENSTACK_TEST_CONFIG}
+	@go test ./tests/storage -funnel-config $(CONFIGDIR)/swift.config.yml
 
 webdash-install:
 	@npm install --prefix ./webdash

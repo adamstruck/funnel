@@ -1,31 +1,70 @@
 os:
   - linux
 language: go
-sudo: required
-services:
-  - docker
 go:
   - 1.8
-before_install:
-  - docker pull ohsucompbio/htcondor
-  - docker pull ohsucompbio/slurm
-  - docker pull ohsucompbio/gridengine
-  - docker pull ohsucompbio/pbs-torque
-  - docker pull docker.elastic.co/elasticsearch/elasticsearch:5.6.3
-  - docker pull mongo:3.5.13
-  - docker pull dwmkerr/dynamodb:38
-  - docker pull spotify/kafka
+sudo: required
+
+services:
+  - docker
+  - elasticsearch
+
+cache:
+  directories:
+    - $GOPATH/pkg
+    - vendor
+
+git:
+  submodules: false
+
 install:
   - make depends
   - make
-  - make cross-compile
-script: 
-  - make lint
-  - make test
-  - make test-backends
-  - make test-elasticsearch
-  - make test-mongodb
-  - make test-dynamodb
-  - make test-kafka
+
+jobs:
+  include:
+    - stage: all
+      script: make lint
+      env:
+        - n=lint
+    - script: make test
+      env:
+        - n=test
+    - script: make test-htcondor
+      env:
+        - n=htcondor
+    - script: make test-slurm
+      env:
+        - n=slurm
+    - script: make test-gridengine
+      env:
+        - n=gridengine
+    - script: make test-pbs-torque
+      env:
+        - n=pbs-torque
+    - script: 
+        - sleep 10
+        - make test-elasticsearch      
+      env:
+        - n=elasticsearch
+    - script: 
+        - make start-mongodb
+        - sleep 10
+        - make test-mongodb
+      env:
+        - n=mongodb
+    - script: 
+        - make start-dynamodb
+        - sleep 10
+        - make test-dynamodb
+      env:
+        - n=dynamodb
+    - script: 
+        - make start-kafka
+        - sleep 10
+        - make test-kafka
+      env:
+        - n=kafka
+
 notifications:
   email: false
