@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
 	awsutil "github.com/ohsu-comp-bio/funnel/cmd/aws/util"
-	"github.com/ohsu-comp-bio/funnel/util"
+	util "github.com/ohsu-comp-bio/funnel/util/aws"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -24,10 +24,8 @@ type svc struct {
 	conf    beanstalkConfig
 }
 
-func newSvc(conf beanstalkConfig, version string, region string) (*svc, error) {
-	awsConf := util.NewAWSConfigWithCreds("", "")
-	awsConf.WithRegion(region)
-	sess, err := session.NewSession(awsConf)
+func newSvc(conf beanstalkConfig, version string) (*svc, error) {
+	sess, err := util.NewAWSSession(conf.AWSConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error occurred creating aws session: %v", err)
 	}

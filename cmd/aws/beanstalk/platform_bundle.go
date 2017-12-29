@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ohsu-comp-bio/funnel/config"
-	"github.com/ohsu-comp-bio/funnel/proto/tes"
 	"github.com/ohsu-comp-bio/funnel/storage"
 	"os"
 	"text/template"
@@ -42,8 +41,8 @@ func createBundle(zipPath string, image string, confPath string) error {
 	}
 	conf.Server.HTTPPort = "8000"
 	conf.Server.RPCPort = "9090"
-	conf.Server.Logger.OutputFile = "/var/log/funnel/funnel.log"
-	cBinary := conf.ToYaml()
+	conf.Logger.OutputFile = "/var/log/funnel/funnel.log"
+	cBinary := config.ToYaml(conf)
 	_, err = cFile.Write(cBinary)
 	if err != nil {
 		return err
@@ -96,10 +95,9 @@ func createBundle(zipPath string, image string, confPath string) error {
 }
 
 func uploadBundle(ctx context.Context, src string, dest string) error {
-	s3, err := storage.NewS3Backend(config.S3Storage{})
+	s3, err := storage.NewAmazonS3Backend(config.AmazonS3Storage{})
 	if err != nil {
 		return err
 	}
-	_, err = s3.Put(ctx, dest, src, tes.FileType_FILE)
-	return err
+	return s3.PutFile(ctx, dest, src)
 }

@@ -1,6 +1,9 @@
 package beanstalk
 
-import awsutil "github.com/ohsu-comp-bio/funnel/cmd/aws/util"
+import (
+	awsutil "github.com/ohsu-comp-bio/funnel/cmd/aws/util"
+	"github.com/ohsu-comp-bio/funnel/config"
+)
 
 type beanstalkConfig struct {
 	ApplicationName    string
@@ -9,6 +12,7 @@ type beanstalkConfig struct {
 	SolutionStackName  string
 	InstanceType       string
 	IamInstanceProfile beanstalkInstanceRole
+	config.AWSConfig
 }
 
 type beanstalkInstanceRole struct {

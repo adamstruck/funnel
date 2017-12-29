@@ -37,7 +37,10 @@ var deployCmd = &cobra.Command{
 func deploy(ctx context.Context, image string, confPath string, bucket string, region string) error {
 	log := logger.NewLogger("elasticbeanstalk-deploy", logger.DefaultConfig())
 
-	svc, err := newSvc(defaultConfig(), version.Version, region)
+	conf := defaultConfig()
+	conf.Region = region
+
+	svc, err := newSvc(conf, version.Version)
 	if err != nil {
 		return fmt.Errorf("error creating aws session: %v", err)
 	}
