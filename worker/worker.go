@@ -3,6 +3,8 @@ package worker
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -56,6 +58,18 @@ func (r *DefaultWorker) Run(pctx context.Context, taskID string) (runerr error) 
 
 	if name, err := os.Hostname(); err == nil {
 		event.Metadata(map[string]string{"hostname": name})
+	}
+
+	if it, err := getEc2InstanceType(); err == nil {
+		event.Metadata(map[string]string{"instance_type": it})
+	}
+
+	if ii, err := getEc2InstanceId(); err == nil {
+		event.Metadata(map[string]string{"instance_id": ii})
+	}
+
+	if ai, err := getEc2AmiId(); err == nil {
+		event.Metadata(map[string]string{"ami_id": ai})
 	}
 
 	task, run.syserr = r.TaskReader.Task(pctx, taskID)
@@ -352,4 +366,31 @@ func (r *DefaultWorker) pollForCancel(pctx context.Context, taskID string, cance
 		}
 	}()
 	return taskctx
+}
+
+func httpGetString(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
+}
+
+func getEc2InstanceType() (string, error) {
+	return httpGetString("http://169.254.169.254/latest/meta-data/instance-type")
+}
+
+func getEc2InstanceId() (string, error) {
+	return httpGetString("http://169.254.169.254/latest/meta-data/instance-id")
+}
+
+func getEc2AmiId() (string, error) {
+	return httpGetString("http://169.254.169.254/latest/meta-data/ami-id")
 }
