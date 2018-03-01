@@ -24,8 +24,6 @@ func List(server, taskView, pageToken, stateFilter string, tagsFilter []string, 
 		return err
 	}
 
-	output := &tes.ListTasksResponse{}
-
 	state, err := getTaskState(stateFilter)
 	if err != nil {
 		return err
@@ -40,34 +38,58 @@ func List(server, taskView, pageToken, stateFilter string, tagsFilter []string, 
 		tags[parts[0]] = parts[1]
 	}
 
+	fmt.Fprintln(writer, "{")
+	fmt.Fprintln(writer, `  "tasks": [`)
+
+	var resp *tes.ListTasksResponse
+	firstRequest := true
+
 	for {
-		req := &tes.ListTasksRequest{
+		resp, err = cli.ListTasks(context.Background(), &tes.ListTasksRequest{
 			View:      tes.TaskView(view),
 			PageToken: pageToken,
 			PageSize:  pageSize,
 			State:     state,
 			Tags:      tags,
-		}
-
-		resp, err := cli.ListTasks(context.Background(), req)
+		})
 		if err != nil {
 			return err
 		}
 
-		output.Tasks = append(output.Tasks, resp.Tasks...)
-		output.NextPageToken = resp.NextPageToken
+		// set up variables for next iteration if `--all` was requested
 		pageToken = resp.NextPageToken
+		firstRequest = false
 
+		// append to last seen previous task
+		if all && resp.NextPageToken != "" && !firstRequest {
+			fmt.Fprintf(writer, ",\n")
+		}
+
+		for i, t := range resp.Tasks {
+			tj, _ := tes.MarshalToString(t)
+			tj = strings.Replace(tj, "\n", "\n    ", -1)
+			if i != len(resp.Tasks)-1 {
+				fmt.Fprintf(writer, "    %s,\n", tj)
+			} else {
+				fmt.Fprintf(writer, "    %s", tj)
+			}
+		}
+
+		// all tasks have been collected
 		if !all || (all && pageToken == "") {
+			fmt.Fprintf(writer, "\n")
 			break
 		}
 	}
 
-	response, err := cli.Marshaler.MarshalToString(output)
-	if err != nil {
-		return fmt.Errorf("marshaling error: %v", err)
+	if resp.NextPageToken != "" {
+		fmt.Fprintln(writer, "  ],")
+		fmt.Fprintf(writer, "  \"nextPageToken\": \"%s\"\n", resp.NextPageToken)
+	} else {
+		fmt.Fprintln(writer, "  ]")
 	}
 
-	fmt.Fprintf(writer, "%s\n", response)
+	fmt.Fprintln(writer, "}")
+
 	return nil
 }
