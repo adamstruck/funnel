@@ -68,12 +68,14 @@ func (b *Backend) Submit(task *tes.Task) error {
 		JobDefinition: aws.String(b.conf.JobDefinition),
 		JobName:       aws.String(safeJobName(task.Name)),
 		JobQueue:      aws.String(b.conf.JobQueue),
-		Parameters: map[string]*string{
-			// Include the taskID in the job parameters. This gets used by
-			// the funnel 'worker run' cmd.
-			"taskID": aws.String(task.Id),
+		ContainerOverrides: &batch.ContainerOverrides{
+			Environment: []*batch.KeyValuePair{
+				{
+					Name:  aws.String("TASKID"),
+					Value: aws.String(task.Id),
+				},
+			},
 		},
-		ContainerOverrides: &batch.ContainerOverrides{},
 	}
 
 	// convert ram from GB to MiB
@@ -87,6 +89,18 @@ func (b *Backend) Submit(task *tes.Task) error {
 		if vcpus > 0 {
 			req.ContainerOverrides.Vcpus = aws.Int64(vcpus)
 		}
+
+		var disk string
+		// TODO make default disk size configurable
+		if task.Resources.DiskGb == 0 {
+			disk = "100"
+		} else {
+			disk = fmt.Sprintf("%v", task.Resources.DiskGb)
+		}
+		req.ContainerOverrides.Environment = append(req.ContainerOverrides.Environment, &batch.KeyValuePair{
+			Name:  aws.String("DISK"),
+			Value: aws.String(disk),
+		})
 	}
 
 	resp, err := b.client.SubmitJob(req)
