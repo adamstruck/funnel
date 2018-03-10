@@ -93,7 +93,7 @@ func (b *Backend) Submit(task *tes.Task) error {
 		var disk string
 		// TODO make default disk size configurable
 		if task.Resources.DiskGb == 0 {
-			disk = "100"
+			disk = "1024"
 		} else {
 			disk = fmt.Sprintf("%v", task.Resources.DiskGb)
 		}
