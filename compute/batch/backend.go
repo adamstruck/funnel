@@ -211,7 +211,6 @@ func (b *Backend) reconcile(ctx context.Context) {
 
 					// continue to next page from ListTasks or break
 					if pageToken == "" {
-						logger.Debug("End reconcile")
 						break
 					}
 					time.Sleep(time.Millisecond * 100)
