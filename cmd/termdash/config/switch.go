@@ -3,8 +3,7 @@
 
 package config
 
-// defaults
-var switches = []*Switch{
+var defaultSwitches = []*Switch{
 	{
 		Key:   "sortReversed",
 		Val:   true,

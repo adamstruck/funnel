@@ -3,8 +3,7 @@
 
 package config
 
-// defaults
-var params = []*Param{
+var defaultParams = []*Param{
 	{
 		Key:   "filterStr",
 		Val:   "",

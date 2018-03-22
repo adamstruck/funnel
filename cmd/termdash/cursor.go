@@ -17,8 +17,8 @@ type GridCursor struct {
 	isScrolling bool // toggled when actively scrolling
 }
 
-func NewGridCursor(tesHTTPServerAddress string) (*GridCursor, error) {
-	ts, err := NewTaskSource(tesHTTPServerAddress, 100)
+func NewGridCursor(tesHTTPServerAddress string, pageSize uint32) (*GridCursor, error) {
+	ts, err := NewTaskSource(tesHTTPServerAddress, pageSize)
 	if err != nil {
 		return nil, err
 	}

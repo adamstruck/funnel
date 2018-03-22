@@ -4,15 +4,30 @@
 package config
 
 var (
-	GlobalParams   []*Param
-	GlobalSwitches []*Switch
+	GlobalParams = defaultParams
+	GlobalSwitches = defaultSwitches
 )
 
-func Init() {
-	for _, p := range params {
-		GlobalParams = append(GlobalParams, p)
+func Init(stateFilter string, tagsFilter []string) {
+	GlobalParams = defaultParams
+	GlobalParams = append(GlobalParams, Param{
+		Key: "stateFiler",
+		Val: stateFilter, 
+		Lavel: "Filter on task state",
+	})
+
+	tags := make(map[string]string)
+	for _, v := range tagsFilter {
+		parts := strings.Split(v, "=")
+		if len(parts) != 2 {
+			return fmt.Errorf("tags must be of the form: KEY=VALUE")
+		}
+		tags[parts[0]] = parts[1]
 	}
-	for _, s := range switches {
-		GlobalSwitches = append(GlobalSwitches, s)
-	}
+
+	GlobalParams = append(GlobalParams, Param{
+		Key: "tagsFiler",
+		Val: tagsFilter, 
+		Lavel: "Filter on task state",
+	})
 }

@@ -17,6 +17,9 @@ var (
 	cursor           *GridCursor
 	cGrid            *compact.Grid
 	header           *widgets.TermDashHeader
+	pageSize         uint32
+	stateFilter      string
+	tagsFilter       []string
 )
 
 // Cmd represents the worker command
@@ -34,17 +37,20 @@ var Cmd = &cobra.Command{
 	},
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return termdash(tesServer)
+		return termdash(tesServer, pageSize, stateFilter, tagsFilter)
 	},
 }
 
 func init() {
 	Cmd.Flags().StringVarP(&tesServer, "server", "S", tesServer, fmt.Sprintf("(default \"%s\")", defaultTesServer))
+	Cmd.Flags().Uint32VarP(&pageSize, "page-size", "p", 25, "Page size.")
+	Cmd.Flags().StringVar(&stateFilter, "state", stateFilter, "State filter")
+	Cmd.Flags().StringSliceVar(&tagsFilter, "tag", tagsFilter, "Tag filter. May be used multiple times to specify more than one tag")
 }
 
-func termdash(tesHTTPServerAddress string) error {
+func termdash(tesHTTPServerAddress string, pageSize uint32, stateFilter string, tagsFilter []string) error {
 	// init global config
-	config.Init()
+	config.Init(stateFilter, tagsFilter)
 
 	// override default colormap
 	ui.ColorMap = colorMap
@@ -58,7 +64,7 @@ func termdash(tesHTTPServerAddress string) error {
 	header = widgets.NewTermDashHeader()
 	cGrid = compact.NewGrid()
 	var err error
-	cursor, err = NewGridCursor(tesHTTPServerAddress)
+	cursor, err = NewGridCursor(tesHTTPServerAddress, pageSize, stateFilter, tagsFilter)
 	if err != nil {
 		return fmt.Errorf("error initializing the grid cursor: %v", err)
 	}
