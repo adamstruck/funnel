@@ -1,12 +1,10 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { withStyles } from '@material-ui/core/styles';
-import Divider from '@material-ui/core/Divider';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
 import TableRow from '@material-ui/core/TableRow';
-import Typography from '@material-ui/core/Typography';
 
 import { formatTimestamp } from './utils';
 
@@ -46,44 +44,6 @@ class NodeInfoRaw extends React.Component {
           <TableCell className={[classes.cell, classes.key]}><b>{key}</b></TableCell>
           <TableCell className={[classes.cell, classes.value]}>{val}</TableCell>
         </TableRow>
-      )
-    }
-    return
-  }
-
-  renderTitle(title) {
-    if (title) {
-      return (
-        <div>
-          <Typography variant="h6">{title}</Typography>
-          <Divider />
-        </div>
-      )
-    }
-    return
-  }
-
-  renderKV(data, title, defaultPadding='40px 0px 0px 0px') {
-    const { classes } = this.props;
-    if ( data ) {
-      return (
-        <div style={{padding: defaultPadding}}>
-          {this.renderTitle(title)}
-          <Table className={classes.table}>
-            <TableBody>
-              {Object.keys(data).map(k => (
-               <TableRow key={k} className={classes.row}>
-                 <TableCell className={[classes.cell, classes.key]}>
-                   <b>{k}</b>
-                 </TableCell>
-                 <TableCell className={[classes.cell, classes.value]}>
-                   {data[k]}
-                 </TableCell>
-               </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
       )
     }
     return
@@ -134,6 +94,7 @@ class NodeInfoRaw extends React.Component {
 
   render() {
     const node = this.props.node
+    console.log("node", node)
     return (
       <div>
         {this.renderNode(node)}

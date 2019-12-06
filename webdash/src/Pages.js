@@ -143,12 +143,12 @@ class NodeList extends React.Component {
 
   listNodes() {
     var url = new URL("/v1/nodes" + window.location.search, window.location.origin);
-    //console.log("listNodes url:", url);
+    console.log("listNodes url:", url);
     fetch(url.toString())
       .then(response => response.json())
       .then(
         (result) => {
-          //console.log("listNodes result:", result);
+          console.log("listNodes result:", result);
           if (result.nodes !== undefined) {
             this.setState({nodes: result.nodes});
           } else {
@@ -162,11 +162,15 @@ class NodeList extends React.Component {
   };
 
   shouldComponentUpdate(nextProps, nextState) {
+    if (!_.isEqual(this.state.nodes, nextState.nodes)) {
+      return true;
+    };
     return false;
   };
 
   render() {
     this.listNodes();
+    console.log("NodeList state:", this.state)
     return (
       <div>
         <Typography variant="h4" gutterBottom component="h2">
@@ -342,7 +346,7 @@ class Node extends React.Component {
     var url = new URL("/v1/nodes/" + this.props.match.params.node_id, window.location.origin);
     get(url).then(
       (node) => {
-        //console.log("node:", node);
+        console.log("node:", node);
         this.setState({node: node});
       },
       (error) => {
