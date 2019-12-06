@@ -4,6 +4,7 @@ import Typography from '@material-ui/core/Typography';
 import ReactJson from 'react-json-view';
 import _ from "underscore";
 import { NodeTable } from './NodeList';
+import { NodeInfo } from './NodeInfo';
 import { SystemInfo } from './SystemInfo';
 import { TaskTable } from './TaskList';
 import { TaskInfo } from './TaskInfo';
@@ -369,7 +370,8 @@ class Node extends React.Component {
         <Typography variant="h5" gutterBottom color="textSecondary">
           {this.state.error}
         </Typography>
-        <div style={{margin:"10px 0px"}}>{node}</div>
+        {/* <div style={{margin:"10px 0px"}}>{node}</div> */}
+        <NodeInfo task={this.state.node} />
       </div>
     );
   };
